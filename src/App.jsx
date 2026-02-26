@@ -700,12 +700,44 @@ const CertificatePage = ({
         </div>
       )}
 
-      {/* Judgment stamp */}
-      {page.judgment && (
-        <div className="no-print absolute bottom-[35mm] right-[18mm] rotate-[-10deg] border-4 border-red-600 text-red-600 font-black font-sans text-[13pt] px-3 py-1.5 rounded opacity-75 tracking-widest">
+      {/* Judgment stamp (CSS fallback — chỉ hiện khi không có stamps[] SVG) */}
+      {page.judgment && (!page.stamps || page.stamps.length === 0) && (
+        <div className="absolute bottom-[35mm] right-[18mm] rotate-[-10deg] border-4 border-red-600 text-red-600 font-black font-sans text-[13pt] px-3 py-1.5 rounded opacity-75 tracking-widest">
           {t.judgment}
         </div>
       )}
+
+      {/* SVG Stamps — rendered from stamps[] array */}
+      {page.stamps?.map((stamp, i) => {
+        const pos = stamp.position || 'bottom-right';
+        const posStyle = {
+          'bottom-right': { bottom: '22mm', right: '15mm' },
+          'bottom-left': { bottom: '22mm', left: '15mm' },
+          'top-right': { top: '22mm', right: '15mm' },
+          'top-left': { top: '22mm', left: '15mm' },
+          'center': { top: '50%', left: '50%', transform: 'translate(-50%,-50%)' },
+        }[pos] || { bottom: '22mm', right: '15mm' };
+
+        const sizeMm = stamp.size_mm || 35;
+        const rotation = stamp.rotation ?? -12;
+        const opacity = stamp.opacity ?? 0.80;
+
+        return (
+          <div
+            key={i}
+            style={{
+              position: 'absolute',
+              ...posStyle,
+              width: `${sizeMm}mm`,
+              height: `${sizeMm}mm`,
+              transform: `${posStyle.transform || ''} rotate(${rotation}deg)`,
+              opacity,
+              pointerEvents: 'none',
+            }}
+            dangerouslySetInnerHTML={{ __html: stamp.svg }}
+          />
+        );
+      })}
 
       {/* Page footer */}
       <div className="absolute bottom-[10mm] left-[25mm] right-[25mm] flex justify-between items-center font-sans border-t border-slate-100 pt-2.5">
