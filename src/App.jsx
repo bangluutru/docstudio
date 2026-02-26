@@ -537,13 +537,13 @@ const CertificatePage = ({
   return (
     <div
       ref={pageRef}
-      className="page-a4 page-font bg-white w-[210mm] h-[297mm] p-[25mm] shadow-[0_20px_60px_-10px_rgba(0,0,0,0.12)] relative flex flex-col text-black border border-slate-100 rounded-sm group"
-      style={{ fontFamily: "'Times New Roman', Times, serif" }}
+      className="page-a4 page-font bg-white w-[210mm] h-[297mm] shadow-[0_20px_60px_-10px_rgba(0,0,0,0.12)] relative flex flex-col text-black border border-slate-100 rounded-sm group"
+      style={{ fontFamily: "'Times New Roman', Times, serif", padding: '12mm 15mm 15mm 15mm' }}
     >
       <DeletePageBtn onDelete={() => onDeletePage(index)} />
 
       {/* Doc Header */}
-      <div className="font-sans flex justify-between items-start mb-5 text-[8.5pt] text-slate-500 uppercase tracking-widest">
+      <div className="font-sans flex justify-between items-start mb-3 text-[8pt] text-slate-500 uppercase tracking-widest">
         <div>
           <div className="font-bold">{page.formNo || t.formDefault}</div>
           <div className="font-normal italic normal-case text-slate-400">{page.internalReport || t.internalReport}</div>
@@ -554,23 +554,23 @@ const CertificatePage = ({
       </div>
 
       {/* Certificate badge */}
-      <div className="flex items-center justify-center gap-2 text-blue-600 mb-3">
-        <span className="text-[9px] font-sans font-bold uppercase tracking-widest border border-blue-200 px-3 py-0.5 rounded-full">
+      <div className="flex items-center justify-center gap-2 text-blue-600 mb-2">
+        <span className="text-[8px] font-sans font-bold uppercase tracking-widest border border-blue-200 px-2 py-0.5 rounded-full">
           {t.certificateLabel}
         </span>
       </div>
 
       {/* Main Title */}
-      <div className="mb-5 text-center">
+      <div className="mb-3 text-center">
         {isEditing ? (
           <textarea
-            className="w-full text-center font-bold text-[18pt] uppercase bg-amber-50 border-b-2 border-amber-300 focus:outline-none p-2 resize-none rounded font-sans leading-snug"
+            className="w-full text-center font-bold text-[15pt] uppercase bg-amber-50 border-b-2 border-amber-300 focus:outline-none p-1 resize-none rounded font-sans leading-snug"
             value={currentTitle}
             rows={2}
             onChange={(e) => onEditChange(index, `title_${lang}`, e.target.value)}
           />
         ) : (
-          <h1 className="font-bold text-[18pt] uppercase leading-tight border-b-2 border-black inline-block pb-1 pr-12 pl-12">
+          <h1 className="font-bold text-[15pt] uppercase leading-tight border-b-2 border-black inline-block pb-0.5 pr-10 pl-10">
             {currentTitle}
           </h1>
         )}
@@ -578,7 +578,7 @@ const CertificatePage = ({
 
       {/* Intro content (optional) */}
       {currentContent.length > 0 && (
-        <div className="mb-4 text-[10.5pt] leading-[1.6] italic text-slate-700">
+        <div className="mb-3 text-[9.5pt] leading-[1.5] italic text-slate-700">
           {currentContent.map((line, i) => <p key={i}>{line}</p>)}
         </div>
       )}
@@ -586,7 +586,7 @@ const CertificatePage = ({
       {/* Meta table — key/value info block */}
       {meta.length > 0 && (
         <table
-          className="w-full mb-5 border-collapse text-[10pt]"
+          className="w-full mb-3 border-collapse text-[9.5pt]"
           style={{ borderColor: '#000' }}
         >
           <tbody>
@@ -596,13 +596,13 @@ const CertificatePage = ({
               return (
                 <tr key={i}>
                   <td
-                    className="border border-black font-bold px-2 py-1.5 align-top"
+                    className="border border-black font-bold px-2 py-1 align-top"
                     style={{ width: '35%', background: '#f5f5f5', fontFamily: 'inherit' }}
                   >
                     {label}
                   </td>
                   <td
-                    className="border border-black px-2 py-1.5 align-top"
+                    className="border border-black px-2 py-1 align-top"
                     style={{ fontFamily: 'inherit' }}
                   >
                     {isEditing ? (
@@ -708,19 +708,33 @@ const CertificatePage = ({
       )}
 
       {/* SVG Stamps — rendered from stamps[] array */}
+      {/* Position: use position_x/position_y (0-100% from top-left of page)
+          Fallback: keyword in 'position' field: top-left/top-right/bottom-left/bottom-right/center */}
       {page.stamps?.map((stamp, i) => {
-        const pos = stamp.position || 'bottom-right';
-        const posStyle = {
-          'bottom-right': { bottom: '22mm', right: '15mm' },
-          'bottom-left': { bottom: '22mm', left: '15mm' },
-          'top-right': { top: '22mm', right: '15mm' },
-          'top-left': { top: '22mm', left: '15mm' },
-          'center': { top: '50%', left: '50%', transform: 'translate(-50%,-50%)' },
-        }[pos] || { bottom: '22mm', right: '15mm' };
-
         const sizeMm = stamp.size_mm || 35;
         const rotation = stamp.rotation ?? -12;
         const opacity = stamp.opacity ?? 0.80;
+
+        // Priority 1: coordinate-based (position_x, position_y as 0-100%)
+        let posStyle = {};
+        if (stamp.position_x != null && stamp.position_y != null) {
+          posStyle = {
+            left: `${stamp.position_x}%`,
+            top: `${stamp.position_y}%`,
+            transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+          };
+        } else {
+          // Priority 2: keyword fallback
+          const kwMap = {
+            'bottom-right': { bottom: '18mm', right: '12mm' },
+            'bottom-left': { bottom: '18mm', left: '12mm' },
+            'top-right': { top: '18mm', right: '12mm' },
+            'top-left': { top: '18mm', left: '12mm' },
+            'center': { top: '50%', left: '50%' },
+          };
+          posStyle = kwMap[stamp.position] || kwMap['bottom-right'];
+          posStyle.transform = `${stamp.position === 'center' ? 'translate(-50%,-50%) ' : ''}rotate(${rotation}deg)`;
+        }
 
         return (
           <div
@@ -730,7 +744,6 @@ const CertificatePage = ({
               ...posStyle,
               width: `${sizeMm}mm`,
               height: `${sizeMm}mm`,
-              transform: `${posStyle.transform || ''} rotate(${rotation}deg)`,
               opacity,
               pointerEvents: 'none',
             }}
@@ -740,7 +753,7 @@ const CertificatePage = ({
       })}
 
       {/* Page footer */}
-      <div className="absolute bottom-[10mm] left-[25mm] right-[25mm] flex justify-between items-center font-sans border-t border-slate-100 pt-2.5">
+      <div className="absolute bottom-[6mm] left-[15mm] right-[15mm] flex justify-between items-center font-sans border-t border-slate-100 pt-2">
         <span className="text-[8pt] uppercase text-slate-300 tracking-widest">DocStudio · AI Document Manager</span>
         <span className="text-[8pt] font-bold uppercase text-slate-400">{t.page} {index + 1} / {totalPages}</span>
       </div>
