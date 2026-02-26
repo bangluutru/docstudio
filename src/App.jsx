@@ -49,8 +49,13 @@ const uiTranslations = {
     deletedPage: "Đã xóa trang",
     coverLabel: "TRANG BÌA",
     appendixLabel: "PHỤ LỤC",
+    certificateLabel: "PHIẾU KIỂM NGHIỆM",
     dateLabel: "Ngày:",
     addLine: "Thêm dòng",
+    judgment: "ĐẠT CHUẨN",
+    metaLabel: "Thông tin chung",
+    testResults: "Kết quả kiểm nghiệm",
+    addTableRow: "+ Thêm hàng",
   },
   en: {
     signer: "REPORT PREPARER",
@@ -79,8 +84,13 @@ const uiTranslations = {
     deletedPage: "Page deleted",
     coverLabel: "COVER PAGE",
     appendixLabel: "APPENDIX",
+    certificateLabel: "TEST CERTIFICATE",
     dateLabel: "Date:",
     addLine: "Add line",
+    judgment: "PASSED",
+    metaLabel: "General Information",
+    testResults: "Test Results",
+    addTableRow: "+ Add row",
   },
   jp: {
     signer: "作成者",
@@ -109,8 +119,13 @@ const uiTranslations = {
     deletedPage: "ページを削除しました",
     coverLabel: "表紙",
     appendixLabel: "付録",
+    certificateLabel: "試験証明書",
     dateLabel: "日付:",
     addLine: "行を追加",
+    judgment: "合格",
+    metaLabel: "基本情報",
+    testResults: "試験結果",
+    addTableRow: "+ 行を追加",
   },
 };
 
@@ -161,7 +176,7 @@ const PageCard = ({
   const currentTitle = page[`title_${displayLang}`] || page.title_vn || '';
   const currentContent = page[`content_${displayLang}`] || page.content_vn || [];
   const isLastPage = index === totalPages - 1;
-  const pageType = page.pageType || 'default'; // 'cover' | 'default' | 'appendix'
+  const pageType = page.pageType || 'default'; // 'cover' | 'default' | 'appendix' | 'certificate'
 
   // ── P2-B: Cover page layout ──
   if (pageType === 'cover') {
@@ -289,6 +304,25 @@ const PageCard = ({
           <span className="text-[8pt] font-bold uppercase text-slate-400">{t.page} {index + 1} / {totalPages}</span>
         </div>
       </div>
+    );
+  }
+
+  // ── P2-B: Certificate page layout (phiếu phân tích / kiểm nghiệm) ──
+  if (pageType === 'certificate') {
+    return (
+      <CertificatePage
+        page={page}
+        index={index}
+        totalPages={totalPages}
+        isEditing={isEditing}
+        displayLang={displayLang}
+        t={t}
+        onEditChange={onEditChange}
+        onDeletePage={onDeletePage}
+        pageRef={pageRef}
+        isOverflowing={isOverflowing}
+        contentRef={contentRef}
+      />
     );
   }
 
@@ -452,6 +486,233 @@ const ContentLines = ({ lines, isEditing, pageIndex, displayLang, onEditChange, 
         </button>
       )}
     </>
+  );
+};
+
+// =====================================================================
+// CertificatePage — renders pageType: "certificate"
+// Schema: { meta[], table: {headers_*, rows[][]}, content_*, footer_*, judgment }
+// =====================================================================
+const CertificatePage = ({
+  page, index, totalPages, isEditing,
+  displayLang, t, onEditChange, onDeletePage,
+  pageRef, isOverflowing, contentRef,
+}) => {
+  const lang = displayLang;
+  const currentTitle = page[`title_${lang}`] || page.title_vn || '';
+  const currentContent = page[`content_${lang}`] || page.content_vn || [];
+  const currentFooter = page[`footer_${lang}`] || page.footer_vn || '';
+  const meta = page.meta || [];
+  const tableHeaders = page.table
+    ? (page.table[`headers_${lang}`] || page.table.headers_vn || [])
+    : [];
+  const tableRows = page.table?.rows || [];
+
+  const handleMetaValueChange = (i, newVal) => {
+    const newMeta = meta.map((m, mi) => {
+      if (mi !== i) return m;
+      // Prefer to update the lang-specific value if it exists, else 'value'
+      const key = (`value_${lang}` in m) ? `value_${lang}` : 'value';
+      return { ...m, [key]: newVal };
+    });
+    onEditChange(index, 'meta', newMeta);
+  };
+
+  const handleCellChange = (ri, ci, newVal) => {
+    const newRows = tableRows.map((row, r) =>
+      r === ri ? row.map((cell, c) => c === ci ? newVal : cell) : row
+    );
+    onEditChange(index, 'table', { ...page.table, rows: newRows });
+  };
+
+  const handleAddTableRow = () => {
+    const emptyRow = tableHeaders.map(() => '');
+    onEditChange(index, 'table', { ...page.table, rows: [...tableRows, emptyRow] });
+  };
+
+  const handleDeleteTableRow = (ri) => {
+    onEditChange(index, 'table', { ...page.table, rows: tableRows.filter((_, r) => r !== ri) });
+  };
+
+  return (
+    <div
+      ref={pageRef}
+      className="page-a4 page-font bg-white w-[210mm] h-[297mm] p-[25mm] shadow-[0_20px_60px_-10px_rgba(0,0,0,0.12)] relative flex flex-col text-black border border-slate-100 rounded-sm group"
+      style={{ fontFamily: "'Times New Roman', Times, serif" }}
+    >
+      <DeletePageBtn onDelete={() => onDeletePage(index)} />
+
+      {/* Doc Header */}
+      <div className="font-sans flex justify-between items-start mb-5 text-[8.5pt] text-slate-500 uppercase tracking-widest">
+        <div>
+          <div className="font-bold">{page.formNo || t.formDefault}</div>
+          <div className="font-normal italic normal-case text-slate-400">{page.internalReport || t.internalReport}</div>
+        </div>
+        <div className="text-right italic normal-case text-slate-400">
+          {page[`subtitle_${lang}`] || page.subtitle_vn || t.appendix}
+        </div>
+      </div>
+
+      {/* Certificate badge */}
+      <div className="flex items-center justify-center gap-2 text-blue-600 mb-3">
+        <span className="text-[9px] font-sans font-bold uppercase tracking-widest border border-blue-200 px-3 py-0.5 rounded-full">
+          {t.certificateLabel}
+        </span>
+      </div>
+
+      {/* Main Title */}
+      <div className="mb-5 text-center">
+        {isEditing ? (
+          <textarea
+            className="w-full text-center font-bold text-[18pt] uppercase bg-amber-50 border-b-2 border-amber-300 focus:outline-none p-2 resize-none rounded font-sans leading-snug"
+            value={currentTitle}
+            rows={2}
+            onChange={(e) => onEditChange(index, `title_${lang}`, e.target.value)}
+          />
+        ) : (
+          <h1 className="font-bold text-[18pt] uppercase leading-tight border-b-2 border-black inline-block pb-1 pr-12 pl-12">
+            {currentTitle}
+          </h1>
+        )}
+      </div>
+
+      {/* Intro content (optional) */}
+      {currentContent.length > 0 && (
+        <div className="mb-4 text-[10.5pt] leading-[1.6] italic text-slate-700">
+          {currentContent.map((line, i) => <p key={i}>{line}</p>)}
+        </div>
+      )}
+
+      {/* Meta table — key/value info block */}
+      {meta.length > 0 && (
+        <table
+          className="w-full mb-5 border-collapse text-[10pt]"
+          style={{ borderColor: '#000' }}
+        >
+          <tbody>
+            {meta.map((m, i) => {
+              const label = m[`label_${lang}`] || m.label_vn || m.label_en || '';
+              const rawVal = m[`value_${lang}`] ?? m.value ?? '';
+              return (
+                <tr key={i}>
+                  <td
+                    className="border border-black font-bold px-2 py-1.5 align-top"
+                    style={{ width: '35%', background: '#f5f5f5', fontFamily: 'inherit' }}
+                  >
+                    {label}
+                  </td>
+                  <td
+                    className="border border-black px-2 py-1.5 align-top"
+                    style={{ fontFamily: 'inherit' }}
+                  >
+                    {isEditing ? (
+                      <input
+                        className="w-full bg-amber-50 border-b border-amber-300 focus:outline-none focus:bg-amber-100 text-[10pt]"
+                        style={{ fontFamily: 'inherit' }}
+                        value={String(rawVal)}
+                        onChange={(e) => handleMetaValueChange(i, e.target.value)}
+                      />
+                    ) : String(rawVal)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+
+      {/* Data table — test results */}
+      {page.table && (
+        <div ref={contentRef} className="flex-grow overflow-hidden">
+          {tableHeaders.length > 0 && (
+            <p className="font-bold font-sans text-[10pt] uppercase tracking-wide mb-1.5 border-l-4 border-slate-700 pl-2">
+              {t.testResults}
+            </p>
+          )}
+          <table
+            className="w-full border-collapse text-[10pt]"
+            style={{ borderColor: '#000' }}
+          >
+            <thead>
+              <tr>
+                {isEditing && <th style={{ width: 24, border: '1px solid #000', background: '#e5e7eb', padding: '4px 6px' }} />}
+                {tableHeaders.map((h, i) => (
+                  <th
+                    key={i}
+                    style={{ border: '1px solid #000', background: '#f3f4f6', fontWeight: 700, padding: '6px 8px', textAlign: 'center', fontFamily: 'inherit' }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {tableRows.map((row, ri) => (
+                <tr key={ri}>
+                  {isEditing && (
+                    <td style={{ border: '1px solid #000', padding: '2px', textAlign: 'center', width: 24 }}>
+                      <button
+                        onClick={() => handleDeleteTableRow(ri)}
+                        className="text-red-400 hover:text-red-600 text-[10px] font-bold leading-none"
+                        title="Xóa hàng"
+                      >×</button>
+                    </td>
+                  )}
+                  {row.map((cell, ci) => (
+                    <td
+                      key={ci}
+                      style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', fontFamily: 'inherit' }}
+                    >
+                      {isEditing ? (
+                        <input
+                          className="w-full bg-amber-50 border-b border-amber-300 focus:outline-none text-center text-[10pt]"
+                          style={{ fontFamily: 'inherit', minWidth: 40 }}
+                          value={cell}
+                          onChange={(e) => handleCellChange(ri, ci, e.target.value)}
+                        />
+                      ) : cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+              {isEditing && (
+                <tr>
+                  <td colSpan={(tableHeaders.length || 1) + 1} style={{ border: '1px solid #000', padding: 0 }}>
+                    <button
+                      onClick={handleAddTableRow}
+                      className="w-full py-1.5 text-blue-500 hover:bg-blue-50 font-sans font-bold text-[9pt] transition-colors"
+                    >
+                      {t.addTableRow}
+                    </button>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          {isOverflowing && !isEditing && <OverflowWarning message={t.overflowWarning} />}
+        </div>
+      )}
+
+      {/* Footer note */}
+      {currentFooter && (
+        <div className="mt-4 pt-2 border-t border-slate-200 text-[9pt] italic text-slate-600">
+          {currentFooter}
+        </div>
+      )}
+
+      {/* Judgment stamp */}
+      {page.judgment && (
+        <div className="no-print absolute bottom-[35mm] right-[18mm] rotate-[-10deg] border-4 border-red-600 text-red-600 font-black font-sans text-[13pt] px-3 py-1.5 rounded opacity-75 tracking-widest">
+          {t.judgment}
+        </div>
+      )}
+
+      {/* Page footer */}
+      <div className="absolute bottom-[10mm] left-[25mm] right-[25mm] flex justify-between items-center font-sans border-t border-slate-100 pt-2.5">
+        <span className="text-[8pt] uppercase text-slate-300 tracking-widest">DocStudio · AI Document Manager</span>
+        <span className="text-[8pt] font-bold uppercase text-slate-400">{t.page} {index + 1} / {totalPages}</span>
+      </div>
+    </div>
   );
 };
 
@@ -806,8 +1067,8 @@ const App = () => {
             <button
               onClick={() => setIsEditing(!isEditing)}
               className={`flex items-center gap-1.5 px-4 py-2 font-bold rounded-xl transition-all text-sm shadow-sm ${isEditing
-                  ? 'bg-amber-500 text-white shadow-amber-200'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                ? 'bg-amber-500 text-white shadow-amber-200'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
                 }`}
             >
               {isEditing ? <><Eye size={14} /> {t.previewBtn}</> : <><Edit3 size={14} /> {t.editBtn}</>}
