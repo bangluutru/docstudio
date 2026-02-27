@@ -12,6 +12,8 @@ import {
     HardDrive,
     CheckCircle2,
     Scale,
+    Edit3,
+    Eye,
 } from 'lucide-react';
 
 // =====================================================================
@@ -51,6 +53,8 @@ const legalUiTranslations = {
         saved: 'Đã lưu',
         docLoaded: 'Đã tải văn bản',
         noContent: 'Không có nội dung để hiển thị.',
+        editBtn: 'Chỉnh sửa',
+        previewBtn: 'Xem thử',
     },
     en: {
         pasteLabel: 'Input JSON Data',
@@ -66,6 +70,8 @@ const legalUiTranslations = {
         saved: 'Saved',
         docLoaded: 'Document loaded',
         noContent: 'No content to display.',
+        editBtn: 'Edit',
+        previewBtn: 'Preview',
     },
     jp: {
         pasteLabel: 'JSONデータ入力',
@@ -81,6 +87,8 @@ const legalUiTranslations = {
         saved: '保存済み',
         docLoaded: '文書を読み込みました',
         noContent: '表示するコンテンツがありません。',
+        editBtn: '編集',
+        previewBtn: 'プレビュー',
     },
 };
 
@@ -99,6 +107,7 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
     });
     const [error, setError] = useState('');
     const [saveStatus, setSaveStatus] = useState('');
+    const [isEditing, setIsEditing] = useState(false);
     const printRef = useRef(null);
 
     const t = legalUiTranslations[displayLang] || legalUiTranslations.vn;
@@ -147,6 +156,22 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
         setTimeout(() => {
             try { window.print(); } catch (e) { console.error('Print Error:', e); }
         }, 400);
+    };
+
+    // --- Edit handler: update docData field directly ---
+    const handleEditField = (field, value) => {
+        if (!docData) return;
+        const updated = { ...docData, [field]: value };
+        setDocData(updated);
+        saveDoc(updated);
+    };
+
+    // --- Edit handler: update nested meta_info field ---
+    const handleEditMeta = (field, value) => {
+        if (!docData || !docData.meta_info) return;
+        const updated = { ...docData, meta_info: { ...docData.meta_info, [field]: value } };
+        setDocData(updated);
+        saveDoc(updated);
     };
 
     // --- Resolve data (with citation stripping) ---
@@ -313,10 +338,21 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
                                     <option value="jp">日本語</option>
                                 </select>
                             </div>
+
+                            <button
+                                onClick={() => setIsEditing(!isEditing)}
+                                disabled={!docData}
+                                className={`flex items-center gap-1.5 px-4 py-2 font-bold rounded-xl transition-all text-sm shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${isEditing
+                                    ? 'bg-amber-500 text-white shadow-amber-200'
+                                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                                    }`}
+                            >
+                                {isEditing ? <><Eye size={14} /> {t.previewBtn}</> : <><Edit3 size={14} /> {t.editBtn}</>}
+                            </button>
                         </div>
 
                         <button
-                            onClick={handlePrint}
+                            onClick={() => { setIsEditing(false); handlePrint(); }}
                             disabled={!docData}
                             className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                         >
@@ -339,31 +375,71 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
                             {/* Meta Header */}
                             {metaInfo && (
                                 <div className="text-center mb-6 font-sans">
-                                    <p className="text-[11pt] font-bold uppercase tracking-wider text-slate-600">
-                                        {stripCitations(getLangVal(metaInfo, 'issuer', displayLang))}
-                                    </p>
+                                    {isEditing ? (
+                                        <input
+                                            className="w-full text-center font-bold text-[11pt] uppercase tracking-wider bg-amber-50 border-b-2 border-amber-300 focus:outline-none p-1 text-slate-700 rounded"
+                                            value={getLangVal(metaInfo, 'issuer', displayLang)}
+                                            onChange={(e) => handleEditMeta(`issuer_${displayLang}`, e.target.value)}
+                                        />
+                                    ) : (
+                                        <p className="text-[11pt] font-bold uppercase tracking-wider text-slate-600">
+                                            {stripCitations(getLangVal(metaInfo, 'issuer', displayLang))}
+                                        </p>
+                                    )}
                                     {metaInfo.doc_number && (
-                                        <p className="text-[10pt] text-slate-500 mt-1">{stripCitations(metaInfo.doc_number)}</p>
+                                        isEditing ? (
+                                            <input
+                                                className="w-full text-center text-[10pt] bg-amber-50 border-b border-amber-300 focus:outline-none p-1 mt-1 text-slate-500 rounded"
+                                                value={metaInfo.doc_number}
+                                                onChange={(e) => handleEditMeta('doc_number', e.target.value)}
+                                            />
+                                        ) : (
+                                            <p className="text-[10pt] text-slate-500 mt-1">{stripCitations(metaInfo.doc_number)}</p>
+                                        )
                                     )}
                                     {(metaInfo.date_vn || metaInfo.date) && (
-                                        <p className="text-[10pt] italic text-slate-400 mt-0.5">
-                                            {stripCitations(getLangVal(metaInfo, 'date', displayLang))}
-                                        </p>
+                                        isEditing ? (
+                                            <input
+                                                className="w-full text-center text-[10pt] italic bg-amber-50 border-b border-amber-300 focus:outline-none p-1 mt-0.5 text-slate-400 rounded"
+                                                value={getLangVal(metaInfo, 'date', displayLang)}
+                                                onChange={(e) => handleEditMeta(`date_${displayLang}`, e.target.value)}
+                                            />
+                                        ) : (
+                                            <p className="text-[10pt] italic text-slate-400 mt-0.5">
+                                                {stripCitations(getLangVal(metaInfo, 'date', displayLang))}
+                                            </p>
+                                        )
                                     )}
                                 </div>
                             )}
 
                             {/* Title */}
-                            {title && (
+                            {(title || isEditing) && (
                                 <div className="text-center mb-8">
-                                    <h1 className="font-bold text-[16pt] uppercase leading-tight whitespace-pre-line">
-                                        {title}
-                                    </h1>
+                                    {isEditing ? (
+                                        <textarea
+                                            className="w-full text-center font-bold text-[16pt] uppercase bg-amber-50 border-b-2 border-amber-300 focus:outline-none p-2 resize-none rounded leading-tight"
+                                            value={getLangVal(docData, 'title', displayLang)}
+                                            rows={3}
+                                            onChange={(e) => handleEditField(`title_${displayLang}`, e.target.value)}
+                                        />
+                                    ) : (
+                                        <h1 className="font-bold text-[16pt] uppercase leading-tight whitespace-pre-line">
+                                            {title}
+                                        </h1>
+                                    )}
                                 </div>
                             )}
 
                             {/* Markdown Content */}
-                            {content ? (
+                            {isEditing ? (
+                                <textarea
+                                    className="w-full min-h-[500px] p-4 bg-amber-50/60 border border-amber-200 rounded-lg font-mono text-[10pt] leading-relaxed resize-y focus:outline-none focus:ring-2 focus:ring-amber-300 text-slate-800"
+                                    value={getLangVal(docData, 'content', displayLang)}
+                                    onChange={(e) => handleEditField(`content_${displayLang}`, e.target.value)}
+                                    placeholder="Markdown content..."
+                                />
+                            ) : content ? (
                                 <div className="legal-prose text-[11.5pt]">
                                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                         {content}
