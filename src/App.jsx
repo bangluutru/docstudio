@@ -667,40 +667,44 @@ const CertificatePage = ({
                     </td>
                   )}
                   {row.map((cell, ci) => {
-                    // SVG cell detection: cell is a string starting with '<svg' OR an object {svg, size_mm}
+                    // SVG cell: string containing <svg> OR object {svg, size_mm}
                     const isSvgObj = cell && typeof cell === 'object' && cell.svg;
-                    const isSvgStr = typeof cell === 'string' && cell.trimStart().startsWith('<svg');
+                    const isSvgStr = typeof cell === 'string' && cell.trimStart().includes('<svg');
                     if (isSvgStr || isSvgObj) {
-                      const svgContent = isSvgObj ? cell.svg : cell;
-                      const sizeMm = (isSvgObj ? cell.size_mm : null) || 14;
-                      const rotation = (isSvgObj ? cell.rotation : null) || 0;
+                      const raw = isSvgObj ? cell.svg : cell;
+                      const defaultSizeMm = (isSvgObj ? cell.size_mm : null) || 13;
+                      // Split multiple SVGs in one string (e.g. 3 stamps side-by-side)
+                      const svgParts = raw.match(/<svg[\s\S]*?<\/svg>/gi) || [raw];
                       return (
                         <td
                           key={ci}
-                          style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontFamily: 'inherit' }}
+                          style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
                         >
-                          <div
-                            style={{
-                              display: 'inline-block',
-                              width: `${sizeMm}mm`,
-                              height: `${sizeMm}mm`,
-                              transform: `rotate(${rotation}deg)`,
-                              verticalAlign: 'middle',
-                            }}
-                            dangerouslySetInnerHTML={{ __html: svgContent }}
-                          />
+                          {svgParts.map((svgStr, si) => (
+                            <div
+                              key={si}
+                              style={{
+                                display: 'inline-block',
+                                width: `${defaultSizeMm}mm`,
+                                height: `${defaultSizeMm}mm`,
+                                verticalAlign: 'middle',
+                                margin: '0 1px',
+                              }}
+                              dangerouslySetInnerHTML={{ __html: svgStr }}
+                            />
+                          ))}
                         </td>
                       );
                     }
                     return (
                       <td
                         key={ci}
-                        style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', fontFamily: 'inherit' }}
+                        style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center', fontFamily: 'inherit', fontSize: '9pt' }}
                       >
                         {isEditing ? (
                           <input
-                            className="w-full bg-amber-50 border-b border-amber-300 focus:outline-none text-center text-[10pt]"
-                            style={{ fontFamily: 'inherit', minWidth: 40 }}
+                            className="w-full bg-amber-50 border-b border-amber-300 focus:outline-none text-center"
+                            style={{ fontFamily: 'inherit', minWidth: 40, fontSize: '9pt' }}
                             value={cell}
                             onChange={(e) => handleCellChange(ri, ci, e.target.value)}
                           />
@@ -708,6 +712,7 @@ const CertificatePage = ({
                       </td>
                     );
                   })}
+
                 </tr>
               ))}
               {isEditing && (
