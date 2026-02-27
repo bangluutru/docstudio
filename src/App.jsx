@@ -569,7 +569,7 @@ const CertificatePage = ({
       </div>
 
       {/* Main Title */}
-      <div className="mb-3 text-center">
+      <div className="mb-3 text-center relative z-10">
         {isEditing ? (
           <textarea
             className="w-full text-center font-bold text-[15pt] uppercase bg-amber-50 border-b-2 border-amber-300 focus:outline-none p-1 resize-none rounded font-sans leading-snug"
@@ -578,11 +578,19 @@ const CertificatePage = ({
             onChange={(e) => onEditChange(index, `title_${lang}`, e.target.value)}
           />
         ) : (
-          <h1 className="font-bold text-[15pt] uppercase leading-tight border-b-2 border-black inline-block pb-0.5 pr-10 pl-10">
+          <h1 className="font-bold text-[15pt] uppercase leading-tight border-b-2 border-black inline-block pb-0.5 px-6">
             {currentTitle}
           </h1>
         )}
       </div>
+
+      {/* Company Info under title (right aligned) */}
+      {page.company_info && (
+        <div className="text-right font-sans text-[10.5pt] font-bold mb-6 mr-4 leading-snug relative z-10">
+          <div>{page.company_info[`name_${lang}`] || page.company_info.name_vn || page.company_info.name || ''}</div>
+          <div className="mt-0.5">{page.company_info[`department_${lang}`] || page.company_info.department_vn || page.company_info.department || ''}</div>
+        </div>
+      )}
 
       {/* Intro content (optional) */}
       {currentContent.length > 0 && (
@@ -594,7 +602,7 @@ const CertificatePage = ({
       {/* Meta table — key/value info block */}
       {meta.length > 0 && (
         <table
-          className="w-full mb-3 border-collapse text-[9.5pt]"
+          className={`mb-3 border-collapse text-[9.5pt] ${page.meta_half_width ? 'w-[45%]' : 'w-full'}`}
           style={{ borderColor: '#000' }}
         >
           <tbody>
