@@ -17,6 +17,7 @@ import {
   BookOpen,
   Scale,
   Combine,
+  Scissors,
 } from 'lucide-react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import UndoToast from './components/UndoToast';
