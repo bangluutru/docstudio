@@ -1,62 +1,13 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { PDFDocument, rgb } from 'pdf-lib';
-import fontkit from '@pdf-lib/fontkit';
-import * as pdfjsLib from 'pdfjs-dist';
-import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-    DndContext,
-    useSensor,
-    useSensors,
-    MouseSensor,
-    TouchSensor,
-    useDraggable,
-} from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
-import {
-    Upload,
-    FileDown,
-    Settings,
-    Image as ImageIcon,
-    Type,
-    AlertCircle,
     Printer,
-    Maximize2
+    FileText,
+    Code,
+    Languages,
+    Maximize2,
+    RefreshCw,
+    Download
 } from 'lucide-react';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
-
-// =====================================================================
-// Custom Draggable Label Component
-// =====================================================================
-const DraggableLabel = ({ id, label, position, value, fontScale }) => {
-    const { attributes, listeners, setNodeRef, transform } = useDraggable({
-        id: id,
-        data: { label, value },
-    });
-
-    const style = {
-        position: 'absolute',
-        left: `${position.x}%`,
-        top: `${position.y}%`,
-        transform: CSS.Translate.toString(transform),
-        fontSize: `${14 * fontScale}px`,
-        touchAction: 'none',
-    };
-
-    return (
-        <div
-            ref={setNodeRef}
-            style={style}
-            {...listeners}
-            {...attributes}
-            className="absolute z-10 whitespace-nowrap bg-white/80 backdrop-blur-sm px-2 py-0.5 border border-dashed border-rose-400 text-rose-700 font-bold rounded-md shadow-sm cursor-grab active:cursor-grabbing hover:bg-white hover:border-solid hover:shadow-md transition-colors"
-        >
-            {value || `[${label}]`}
-            {/* Anchor dot */}
-            <div className="absolute top-0 left-0 w-2 h-2 bg-rose-500 rounded-full -translate-x-1/2 -translate-y-1/2" />
-        </div>
-    );
-};
 
 // =====================================================================
 // Helper: Deep flatten JSON and group language keys
@@ -68,7 +19,7 @@ const flattenAndExtractLangFields = (data) => {
             obj.forEach((item, i) => recurse(item, `${prefix}[${i}].`));
         } else if (obj !== null && typeof obj === 'object') {
             const isLangObj = Object.keys(obj).some(k => ['vn', 'en', 'jp'].includes(k)) &&
-                Object.values(obj).every(v => typeof v === 'string' || !v);
+                Object.values(obj).every(v => typeof v === 'string' || typeof v === 'boolean' || typeof v === 'number' || !v);
             if (isLangObj) {
                 flat[prefix.replace(/\.$/, '')] = obj;
             } else {
@@ -95,372 +46,283 @@ const flattenAndExtractLangFields = (data) => {
             grouped[key] = value;
         }
     });
-    return grouped;
+
+    // Alias specific legacy keys to simpler standard keys to match AI HTML Generation
+    // e.g., 'table.rows[0].[1]' -> something easier, or 'company_info.name' -> 'company_info_name'
+    const finalGroup = { ...grouped };
+    Object.keys(grouped).forEach(k => {
+        const cleanKey = k.replace(/[\.\[\]]/g, '_').replace(/__+/g, '_').replace(/_$/g, '');
+        if (cleanKey !== k) {
+            finalGroup[cleanKey] = grouped[k];
+        }
+    });
+
+    return finalGroup;
 };
 
 // =====================================================================
-// TemplateOverlayView — The Pixel-Perfect Overlay Module
+// Dynamic HTML interpolator
+// Replaces {{key}} with values from parsed Data
 // =====================================================================
-const TemplateOverlayView = ({ displayLang }) => {
-    const [bgPdfBytes, setBgPdfBytes] = useState(null);
-    const [bgImageSrc, setBgImageSrc] = useState(null);
-    const [bgDimensions, setBgDimensions] = useState({ width: 0, height: 0 }); // PDF intrinsic sizes
-    const [jsonInput, setJsonInput] = useState('{\n  "customerName": { "vn": "Nguyễn Văn A", "en": "Nguyen Van A", "jp": "グエン・ヴァン・A" },\n  "testResult": { "vn": "Âm tính", "en": "Negative", "jp": "陰性" },\n  "date": { "vn": "10/10/2026", "en": "Oct 10, 2026", "jp": "2026年10月10日" }\n}');
-    const [parsedData, setParsedData] = useState({});
-    const [fields, setFields] = useState([]); // Array of { id, position: {x, y}, fontScale }
-    const [isExporting, setIsExporting] = useState(false);
-    const [error, setError] = useState('');
-    const workspaceRef = useRef(null);
+const interpolateHTML = (htmlTemplate, parsedData, currentLang) => {
+    if (!htmlTemplate) return '';
 
-    // --- Parse JSON ---
+    return htmlTemplate.replace(/\{\{([\w_]+)\}\}/g, (match, keyName) => {
+        // Try exact match first, then fuzzy match
+        let valObj = parsedData[keyName];
+
+        // Fuzzy search for partial keys if exact not found (e.g., 'customer_name' matches 'doc_header_customerName')
+        if (!valObj) {
+            const foundKey = Object.keys(parsedData).find(k => k.toLowerCase().includes(keyName.toLowerCase()));
+            if (foundKey) valObj = parsedData[foundKey];
+        }
+
+        if (valObj) {
+            // If it's a language object
+            if (typeof valObj === 'object' && ('vn' in valObj || 'en' in valObj || 'jp' in valObj)) {
+                return valObj[currentLang] || valObj['vn'] || valObj['en'] || valObj['jp'] || '';
+            }
+            // If it's just a string/number
+            return String(valObj);
+        }
+
+        // Return a red placeholder if data is missing, so it's visible to user
+        return `<span class="bg-red-100 text-red-600 border border-red-300 px-1 rounded text-xs font-mono" title="Thiếu dữ liệu: ${keyName}">[${keyName}]</span>`;
+    });
+};
+
+const TemplateOverlayView = ({ displayLang }) => {
+    // -----------------------------------------------------------------
+    // STATE
+    // -----------------------------------------------------------------
+    const [htmlInput, setHtmlInput] = useState(`<div class="w-[210mm] min-h-[297mm] mx-auto bg-white border border-gray-200 shadow-xl p-10 font-sans text-sm text-gray-900 leading-relaxed">
+  <div class="flex justify-between items-center border-b-2 border-gray-800 pb-4 mb-8">
+    <div>
+      <h1 class="text-2xl font-black uppercase tracking-widest">{{title}}</h1>
+      <p class="text-xs text-gray-500 mt-1 uppercase">DocStudio Certification Template</p>
+    </div>
+    <div class="text-right">
+      <div class="font-bold whitespace-pre-wrap">{{recipient}}</div>
+      <div class="text-xs text-gray-600">{{date}}</div>
+    </div>
+  </div>
+
+  <div class="mb-8">
+    <table class="w-full text-left border-collapse">
+       <tr>
+        <td class="border border-gray-400 p-2 font-bold w-1/3 bg-gray-50">{{label_name}}</td>
+        <td class="border border-gray-400 p-2 font-medium text-blue-900">{{customer_name}}</td>
+       </tr>
+       <tr>
+        <td class="border border-gray-400 p-2 font-bold w-1/3 bg-gray-50">{{label_address}}</td>
+        <td class="border border-gray-400 p-2">{{address}}</td>
+       </tr>
+       <tr>
+        <td class="border border-gray-400 p-2 font-bold w-1/3 bg-gray-50">{{label_result}}</td>
+        <td class="border border-gray-400 p-2 font-bold text-rose-700 text-xl">{{test_result}}</td>
+       </tr>
+    </table>
+  </div>
+
+  <div class="mt-20 flex justify-end">
+    <div class="text-center w-64">
+      <p class="mb-16 font-medium">{{director_title}}</p>
+      <div class="w-32 h-32 rounded-full border border-red-500 mx-auto flex items-center justify-center opacity-30 transform -rotate-12">
+        <span class="text-red-500 font-bold border border-red-500 p-1">ĐÃ DUYỆT</span>
+      </div>
+      <p class="font-bold border-t border-gray-400 mt-4 pt-2">{{director_name}}</p>
+    </div>
+  </div>
+</div>`);
+
+    const [jsonInput, setJsonInput] = useState(`{
+  "title": { "vn": "GIẤY XÁC NHẬN KẾT QUẢ", "en": "CERTIFICATE OF RESULT", "jp": "結果証明書" },
+  "recipient": { "vn": "Kính gửi: Công ty Sakura", "en": "To: Sakura Inc.", "jp": "さくら株式会社 御中" },
+  "date": { "vn": "Hà Nội, Ngày 28 tháng 2 năm 2026", "en": "Hanoi, Feb 28, 2026", "jp": "2026年2月28日 ハノイ" },
+  "label_name": { "vn": "Họ và tên / Sản phẩm", "en": "Name / Product", "jp": "氏名・製品名" },
+  "customer_name": { "vn": "Nguyễn Văn A", "en": "Nguyen Van A", "jp": "グエン・ヴァン・A" },
+  "label_address": { "vn": "Địa chỉ / Xuất xứ", "en": "Address / Origin", "jp": "住所・原産地" },
+  "address": { "vn": "123 Đường B, TP Hà Nội", "en": "123 B St, Hanoi", "jp": "ハノイ市B通り123" },
+  "label_result": { "vn": "Kết Luận Định Khoản", "en": "Final Judgment", "jp": "最終判定" },
+  "test_result": { "vn": "ÂM TÍNH (ĐẠT CHUẨN)", "en": "NEGATIVE (PASSED)", "jp": "陰性（合格）" },
+  "director_title": { "vn": "Giám đốc Trung tâm", "en": "Center Director", "jp": "センター所長" },
+  "director_name": { "vn": "Trần Hải Bằng", "en": "Tran Hai Bang", "jp": "チャン・ハイ・バン" }
+}`);
+
+    const [parsedData, setParsedData] = useState({});
+    const [jsonError, setJsonError] = useState('');
+
+    // Print ref
+    const printAreaRef = useRef(null);
+
+    // -----------------------------------------------------------------
+    // EFFECT: Parse JSON
+    // -----------------------------------------------------------------
     useEffect(() => {
         try {
             const data = JSON.parse(jsonInput);
             const flatData = flattenAndExtractLangFields(data);
             setParsedData(flatData);
-            setError('');
-
-            // Initialize fields if new keys found
-            setFields((prev) => {
-                const currentIds = prev.map(f => f.id);
-                const newFields = [...prev];
-                Object.keys(flatData).forEach((key, index) => {
-                    if (!currentIds.includes(key)) {
-                        // Scatter position so they don't overlap completely
-                        const col = index % 3;
-                        const row = Math.floor(index / 3);
-                        newFields.push({
-                            id: key,
-                            position: { x: 5 + (col * 30), y: 5 + (row * 6) },
-                            fontScale: 1.0
-                        });
-                    }
-                });
-                // Remove deleted keys
-                return newFields.filter(f => Object.keys(flatData).includes(f.id));
-            });
+            setJsonError('');
         } catch (err) {
-            setError('JSON không hợp lệ');
+            setJsonError('JSON không hợp lệ: ' + err.message);
         }
     }, [jsonInput]);
 
-    // --- Upload Background PDF ---
-    const handleBgUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    // -----------------------------------------------------------------
+    // RENDER: Interpolate HTML
+    // -----------------------------------------------------------------
+    const finalHtml = useMemo(() => {
+        return interpolateHTML(htmlInput, parsedData, displayLang);
+    }, [htmlInput, parsedData, displayLang]);
 
-        try {
-            const arrayBuffer = await file.arrayBuffer();
-            setBgPdfBytes(arrayBuffer);
-
-            // Render 1st page to image for background mapping
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
-            const page = await pdf.getPage(1);
-            const viewport = page.getViewport({ scale: 2.0 }); // High res for bg
-            const canvas = document.createElement('canvas');
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
-            const ctx = canvas.getContext('2d');
-            await page.render({ canvasContext: ctx, viewport }).promise;
-
-            setBgImageSrc(canvas.toDataURL('image/jpeg', 0.8));
-
-            // Get intrinsic dimensions of the PDF page in points
-            const unscaledViewport = page.getViewport({ scale: 1.0 });
-            setBgDimensions({ width: unscaledViewport.width, height: unscaledViewport.height });
-
-        } catch (err) {
-            console.error('Error loading BG PDF:', err);
-            setError('Không thể đọc file PDF nền');
-        }
+    // -----------------------------------------------------------------
+    // PRINT ACTION
+    // -----------------------------------------------------------------
+    const handlePrint = () => {
+        window.print();
     };
 
-    // --- DndKit Sensors ---
-    const sensors = useSensors(
-        useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
-        useSensor(TouchSensor, { activationConstraint: { delay: 100, tolerance: 5 } })
-    );
-
-    // --- Handle drag end ---
-    const handleDragEnd = (event) => {
-        const { active, delta } = event;
-        if (!workspaceRef.current) return;
-
-        // Convert delta px to percentage of workspace to be responsive
-        const rect = workspaceRef.current.getBoundingClientRect();
-        const deltaXPercent = (delta.x / rect.width) * 100;
-        const deltaYPercent = (delta.y / rect.height) * 100;
-
-        setFields((fields) =>
-            fields.map((f) => {
-                if (f.id === active.id) {
-                    return {
-                        ...f,
-                        position: {
-                            x: Math.max(0, Math.min(100, f.position.x + deltaXPercent)),
-                            y: Math.max(0, Math.min(100, f.position.y + deltaYPercent)),
-                        },
-                    };
-                }
-                return f;
-            })
-        );
-    };
-
-    // --- Change Font Size for a field ---
-    const updateFontScale = (id, newScale) => {
-        setFields(fields.map(f => f.id === id ? { ...f, fontScale: parseFloat(newScale) } : f));
-    };
-
-    // --- Get Lang Value ---
-    const getLangVal = (keyObj) => {
-        if (!keyObj) return '';
-        if (typeof keyObj === 'string') return keyObj;
-        return keyObj[displayLang] || keyObj['vn'] || keyObj['en'] || '';
-    };
-
-    // --- Export PDF Core Engine ---
-    const handleExport = async () => {
-        if (!bgPdfBytes) {
-            setError('Vui lòng upload file PDF mẫu trước');
-            return;
-        }
-        setIsExporting(true);
-
-        try {
-            // 1. Load Background PDF
-            const pdfDoc = await PDFDocument.load(bgPdfBytes);
-            pdfDoc.registerFontkit(fontkit);
-
-            // 2. Fetch our custom font to support Vietnamese
-            // In a real app we might fetch from a full CDN URL or local public dir
-            const fontResponse = await fetch('/fonts/Roboto-Regular.ttf');
-            if (!fontResponse.ok) console.warn('Roboto font not found locally. Fallback might fail on VN text.');
-            const fontBytes = await fontResponse.arrayBuffer();
-
-            // Embed the font
-            const robotoFont = await pdfDoc.embedFont(fontBytes);
-
-            // 3. Draw text on ALL pages or just the first page? (Assuming 1 page template for now)
-            const pages = pdfDoc.getPages();
-            const page = pages[0];
-            const { width: pdfW, height: pdfH } = page.getSize();
-
-            // 4. Map and inject fields
-            fields.forEach((field) => {
-                const textObj = parsedData[field.id];
-                const textVal = getLangVal(textObj);
-
-                // Convert Percentage (0-100) to absolute PDF points
-                // NOTE: pdf-lib uses Bottom-Left as (0,0). So Y needs inversion.
-                const absoluteX = (field.position.x / 100) * pdfW;
-                const absoluteY = pdfH - ((field.position.y / 100) * pdfH); // Inverted Y
-
-                // fontSize config
-                const baseSize = 12; // 12pt is standard
-                const finalSize = baseSize * field.fontScale;
-
-                page.drawText(textVal, {
-                    x: absoluteX,
-                    y: absoluteY - (finalSize * 0.7), // Shift down roughly line height because drawText aligns bottom-left
-                    size: finalSize,
-                    font: robotoFont,
-                    color: rgb(0, 0, 0), // Black
-                });
-            });
-
-            // 5. Save and Download
-            const pdfBytes = await pdfDoc.save();
-            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Overlay_${displayLang}_${new Date().getTime()}.pdf`;
-            a.click();
-            URL.revokeObjectURL(url);
-
-        } catch (err) {
-            console.error('Export Failed:', err);
-            setError('Lỗi khi xuất PDF. Chi tiết: ' + err.message);
-        } finally {
-            setIsExporting(false);
-        }
-    };
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50 font-sans text-slate-800">
 
-            {/* HEADER */}
+            {/* HEADER - NO PRINT */}
             <div className="no-print bg-slate-900 border-b border-rose-500/30 p-4 shrink-0 shadow-lg">
-                <div className="max-w-7xl mx-auto flex items-center justify-between">
+                <div className="max-w-[1600px] mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-3 text-white">
-                        <div className="w-9 h-9 bg-rose-500/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-rose-500/50">
-                            <Printer size={18} className="text-rose-400" strokeWidth={2.5} />
+                        <div className="w-9 h-9 bg-rose-500/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-rose-500/50 shadow-inner">
+                            <Code size={18} className="text-rose-400" strokeWidth={2.5} />
                         </div>
                         <div>
-                            <h1 className="text-lg font-black tracking-tight uppercase">Pixel/Perfect</h1>
-                            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Template Overlay Engine</p>
+                            <h1 className="text-lg font-black tracking-tight uppercase">Kiến Tạo Mẫu</h1>
+                            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Dynamic HTML Builder</p>
                         </div>
                     </div>
 
                     <button
-                        onClick={handleExport}
-                        disabled={!bgPdfBytes || isExporting}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={handlePrint}
+                        className="flex items-center gap-2 px-6 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl shadow-lg transition-all"
                     >
-                        <FileDown size={16} /> {isExporting ? 'Đang xuất PDF...' : 'In / Xuất PDF'}
+                        <Printer size={16} /> Print / Xuất PDF
                     </button>
                 </div>
             </div>
 
-            {/* ERROR BANNER */}
-            {error && (
-                <div className="bg-red-50 border-l-4 border-red-500 p-3 mx-4 mt-4 rounded-r-lg flex items-center gap-3 text-red-700 shadow-sm max-w-7xl xl:mx-auto w-full">
-                    <AlertCircle size={18} /> <span className="text-sm font-medium">{error}</span>
-                </div>
-            )}
-
             {/* MAIN WORKSPACE */}
-            <div className="flex-grow flex flex-col md:flex-row gap-6 p-4 md:p-6 max-w-[1600px] mx-auto w-full h-[calc(100vh-80px)]">
+            <div className="no-print flex-grow flex flex-col lg:flex-row gap-6 p-4 md:p-6 max-w-[1600px] mx-auto w-full h-[calc(100vh-80px)]">
 
-                {/* LEFT PANEL: Data & Config */}
-                <div className="w-full md:w-80 flex flex-col gap-4 shrink-0">
+                {/* LEFT PANEL: HTML Template & JSON Data */}
+                <div className="w-full lg:w-1/3 xl:w-2/5 flex flex-col gap-6 shrink-0 h-full">
 
-                    {/* Step 1: Upload Template */}
-                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
-                            <span className="w-5 h-5 bg-slate-100 rounded-full flex items-center justify-center text-slate-500">1</span>
-                            File Nền (Mẫu trống)
-                        </h3>
-                        <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 hover:border-slate-400 transition-all">
-                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                <ImageIcon className="w-6 h-6 mb-2 text-slate-400" />
-                                <p className="text-xs text-slate-500 font-medium">Bấm để chọn PDF mẫu</p>
-                            </div>
-                            <input type="file" className="hidden" accept=".pdf" onChange={handleBgUpload} />
-                        </label>
-                        {bgPdfBytes && (
-                            <div className="mt-3 p-2 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-100 flex items-center gap-2">
-                                ✅ Đã nạp file nền ({bgDimensions.width.toFixed(0)}x{bgDimensions.height.toFixed(0)}pt)
-                            </div>
-                        )}
+                    {/* Step 1: HTML Template */}
+                    <div className="bg-white p-0 rounded-2xl shadow-sm border border-slate-200 flex-grow flex flex-col min-h-[300px] overflow-hidden">
+                        <div className="bg-slate-100 p-3 border-b border-slate-200 flex justify-between items-center shrink-0">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+                                <span className="w-5 h-5 bg-white shadow-sm rounded flex items-center justify-center text-slate-700">1</span>
+                                HTML Template (Bản vẽ)
+                            </h3>
+                        </div>
+                        <textarea
+                            className="w-full flex-grow p-4 bg-[#1E1E1E] text-blue-300 font-mono text-[11px] leading-relaxed focus:outline-none resize-none"
+                            value={htmlInput}
+                            onChange={(e) => setHtmlInput(e.target.value)}
+                            spellCheck="false"
+                            placeholder="Dán mã HTML/Tailwind do Gemini gen vào đây. Các biến dùng {{ten_bien}}..."
+                        />
                     </div>
 
                     {/* Step 2: JSON Data */}
-                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex-grow flex flex-col min-h-0">
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
-                            <span className="w-5 h-5 bg-slate-100 rounded-full flex items-center justify-center text-slate-500">2</span>
-                            Dữ liệu phẳng (JSON)
-                        </h3>
+                    <div className="bg-white p-0 rounded-2xl shadow-sm border border-slate-200 flex-grow flex flex-col min-h-[300px] overflow-hidden">
+                        <div className="bg-slate-100 p-3 border-b border-slate-200 flex justify-between items-center shrink-0">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+                                <span className="w-5 h-5 bg-white shadow-sm rounded flex items-center justify-center text-slate-700">2</span>
+                                Dữ Liệu (JSON)
+                            </h3>
+                            {jsonError && <span className="text-[10px] text-red-500 font-bold bg-red-100 px-2 py-1 rounded truncate max-w-[200px]">{jsonError}</span>}
+                        </div>
                         <textarea
-                            className="w-full flex-grow p-3 bg-slate-900 text-emerald-400 font-mono text-xs rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none resize-none border border-slate-700 shadow-inner"
+                            className={`w-full flex-grow p-4 bg-[#1E1E1E] text-emerald-300 font-mono text-[11px] leading-relaxed focus:outline-none resize-none ${jsonError ? 'border-2 border-red-500' : ''}`}
                             value={jsonInput}
                             onChange={(e) => setJsonInput(e.target.value)}
                             spellCheck="false"
+                            placeholder="Dán JSON từ Gemini với định dạng _vn, _en, _jp..."
                         />
                     </div>
 
                 </div>
 
-                {/* RIGHT PANEL: Canvas Workspace */}
-                <div className="flex-grow bg-slate-200/50 rounded-3xl border-2 border-slate-200 overflow-hidden relative shadow-inner flex flex-col">
-
+                {/* RIGHT PANEL: Live Preview Area */}
+                <div className="flex-grow bg-slate-400 rounded-3xl border-4 border-slate-300 overflow-hidden relative shadow-inner flex flex-col max-h-full">
                     {/* Toolbar inner */}
-                    <div className="h-12 bg-white border-b border-slate-200 flex items-center px-4 justify-between shrink-0">
+                    <div className="h-12 bg-white/90 backdrop-blur border-b border-slate-300 flex items-center px-4 justify-between shrink-0 z-10">
                         <div className="flex items-center gap-4">
-                            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                                <span className="w-5 h-5 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center">3</span>
-                                Kéo thả chữ vào vị trí
+                            <span className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+                                <span className="w-5 h-5 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center shadow-sm">3</span>
+                                Bản Cầm Tay (Live Preview)
                             </span>
                         </div>
-                        <div className="text-xs text-slate-400 flex items-center gap-1 font-medium bg-slate-100 px-3 py-1 rounded-lg">
-                            <Maximize2 size={12} /> Auto-scale Canvas
+                        <div className="flex gap-2 text-[10px] font-bold">
+                            <span className="bg-sky-100 text-sky-700 px-2 py-1 rounded-full flex items-center gap-1"><Languages size={12} /> Ngôn ngữ: {displayLang.toUpperCase()}</span>
                         </div>
                     </div>
 
-                    {/* Draggable Area */}
-                    <div className="flex-grow overflow-auto p-4 flex justify-center bg-[#E5E5F7]" style={{ backgroundImage: 'radial-gradient(#444cf7 0.5px, #E5E5F7 0.5px)', backgroundSize: '10px 10px' }}>
-
-                        {!bgImageSrc ? (
-                            <div className="my-auto text-center text-slate-400 flex flex-col items-center max-w-sm">
-                                <div className="w-16 h-16 bg-white rounded-2xl shadow-md flex items-center justify-center mb-4">
-                                    <ImageIcon size={24} className="text-slate-300" />
-                                </div>
-                                <p className="font-bold text-lg text-slate-500 mb-2">Chưa có Background</p>
-                                <p className="text-sm">Vui lòng tải lên 1 file PDF mẫu trống ở cột bên trái để làm nền mapping.</p>
-                            </div>
-                        ) : (
-                            // The Page Envelope wrapper
-                            <div className="relative bg-white shadow-2xl" style={{
-                                // Keep aspect ratio identical to PDF
-                                aspectRatio: `${bgDimensions.width} / ${bgDimensions.height}`,
-                                maxHeight: '100%',
-                                // allow it to scale
-                            }}>
-
-                                {/* Visual Image Background */}
-                                <img
-                                    src={bgImageSrc}
-                                    alt="Template Background"
-                                    className="absolute inset-0 w-full h-full object-contain pointer-events-none opacity-90"
-                                />
-
-                                {/* DND Context for the overlay layer */}
-                                <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-                                    <div
-                                        ref={workspaceRef}
-                                        className="absolute inset-0 w-full h-full"
-                                    >
-                                        {fields.map((field) => (
-                                            <DraggableLabel
-                                                key={field.id}
-                                                id={field.id}
-                                                label={field.id}
-                                                position={field.position}
-                                                value={getLangVal(parsedData[field.id])}
-                                                fontScale={field.fontScale}
-                                            />
-                                        ))}
-                                    </div>
-                                </DndContext>
-
-                            </div>
-                        )}
+                    {/* The Scale Wrapper for Preview */}
+                    <div className="flex-grow overflow-auto p-4 md:p-8 flex justify-center bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-slate-300/50">
+                        {/* THE ACTUAL PAPER TO PRINT */}
+                        <div
+                            className="bg-white shadow-2xl transition-all print-target"
+                            style={{
+                                width: '210mm',
+                                minHeight: '297mm', // strict A4 ratio for preview
+                                transformOrigin: 'top center',
+                                // CSS magic to make it scale down if monitor is small, but print at 100%
+                            }}
+                            dangerouslySetInnerHTML={{ __html: finalHtml }}
+                        />
                     </div>
                 </div>
 
-                {/* RIGHTMOST PANEL: Field Config */}
-                {fields.length > 0 && bgImageSrc && (
-                    <div className="w-full md:w-64 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 shrink-0 overflow-y-auto hidden xl:block">
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2 border-b border-slate-100 pb-2">
-                            <Settings size={14} /> Tùy chỉnh (Cỡ chữ)
-                        </h3>
-                        <div className="space-y-4">
-                            {fields.map(f => (
-                                <div key={f.id} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                    <div className="text-xs font-bold text-slate-700 truncate mb-2" title={f.id}>#{f.id}</div>
-                                    <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1">
-                                        <span>X: {f.position.x.toFixed(1)}%</span>
-                                        <span>Y: {f.position.y.toFixed(1)}%</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 mt-2">
-                                        <Type size={12} className="text-slate-400" />
-                                        <input
-                                            type="range"
-                                            min="0.5" max="3" step="0.1"
-                                            value={f.fontScale}
-                                            onChange={(e) => updateFontScale(f.id, e.target.value)}
-                                            className="flex-grow accent-rose-500 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                                        />
-                                        <span className="text-[10px] font-mono text-slate-500 w-6 font-bold text-right">{f.fontScale.toFixed(1)}x</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
             </div>
+
+            {/* =========================================================
+                PRINT CSS INJECTION
+                ========================================================= */}
+            <style dangerouslySetInnerHTML={{
+                __html: `
+        @media print {
+          @page {
+            size: A4;
+            margin: 0; /* Remove default browser margins to avoid headers/footers */
+          }
+          body * {
+            visibility: hidden; /* Hide absolutely everything */
+          }
+          .print-target, .print-target * {
+            visibility: visible; /* Show only our target A4 paper */
+          }
+          .print-target {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 210mm;
+            height: 297mm; /* Force exactly 1 A4 page if content fits */
+            margin: 0;
+            padding: 0;
+            box-shadow: none !important;
+            border: none !important;
+            background-color: white !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+            
+          /* Ensure Tailwind background colors print */
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+        }
+      `}} />
         </div>
     );
 };
