@@ -551,34 +551,36 @@ const CertificatePage = ({
       )}
 
       {/* Doc Header */}
-      <div className="font-sans flex justify-between items-start mb-3 text-[8pt] text-slate-500 uppercase tracking-widest">
+      <div className="font-sans flex justify-between items-start mb-3 text-[8pt] text-slate-500">
         <div>
-          <div className="font-bold">{page.formNo || t.formDefault}</div>
-          <div className="font-normal italic normal-case text-slate-400">{page.internalReport || t.internalReport}</div>
+          <div className="font-bold tracking-widest">{page[`formNo_${lang}`] || page.formNo_vn || page.formNo || ''}</div>
+          <div className="font-normal italic text-slate-400">{page[`internalReport_${lang}`] || page.internalReport_vn || page.internalReport || ''}</div>
         </div>
-        <div className="text-right italic normal-case text-slate-400">
-          {page[`subtitle_${lang}`] || page.subtitle_vn || t.appendix}
+        <div className="text-right italic text-slate-400">
+          {page[`subtitle_${lang}`] || page.subtitle_vn || page.subtitle || ''}
         </div>
       </div>
 
       {/* Certificate badge */}
-      <div className="flex items-center justify-center gap-2 text-blue-600 mb-2">
-        <span className="text-[8px] font-sans font-bold uppercase tracking-widest border border-blue-200 px-2 py-0.5 rounded-full">
-          {t.certificateLabel}
-        </span>
-      </div>
+      {page.showBadge !== false && (
+        <div className="flex items-center justify-center gap-2 text-blue-500 mb-2 mt-4">
+          <span className="text-[9px] font-sans font-bold uppercase tracking-widest border border-blue-200 px-3 py-0.5 rounded-full">
+            {page[`badge_${lang}`] || page.badge_vn || page.badge || t.certificateLabel}
+          </span>
+        </div>
+      )}
 
       {/* Main Title */}
       <div className="mb-3 text-center relative z-10">
         {isEditing ? (
           <textarea
-            className="w-full text-center font-bold text-[15pt] uppercase bg-amber-50 border-b-2 border-amber-300 focus:outline-none p-1 resize-none rounded font-sans leading-snug"
+            className="w-full text-center font-bold text-[15pt] bg-amber-50 border-b-2 border-amber-300 focus:outline-none p-1 resize-none rounded font-sans leading-snug"
             value={currentTitle}
             rows={2}
             onChange={(e) => onEditChange(index, `title_${lang}`, e.target.value)}
           />
         ) : (
-          <h1 className="font-bold text-[15pt] uppercase leading-tight border-b-2 border-black inline-block pb-0.5 px-6">
+          <h1 className="font-bold text-[15pt] leading-tight border-b-2 border-black inline-block pb-0.5 px-6">
             {currentTitle}
           </h1>
         )}
@@ -602,7 +604,7 @@ const CertificatePage = ({
       {/* Meta table — key/value info block */}
       {meta.length > 0 && (
         <table
-          className={`mb-3 border-collapse text-[9.5pt] ${page.meta_half_width ? 'w-[45%]' : 'w-full'}`}
+          className={`mb-4 mt-2 border-collapse text-[9.5pt] ${page.meta_half_width ? 'w-[45%]' : 'w-full'}`}
           style={{ borderColor: '#000' }}
         >
           <tbody>
@@ -640,9 +642,9 @@ const CertificatePage = ({
       {/* Data table — test results */}
       {page.table && (
         <div ref={contentRef} className="flex-grow overflow-hidden">
-          {tableHeaders.length > 0 && (
+          {page[`testResultsTitle_${lang}`] || page.testResultsTitle_vn || page.testResultsTitle || tableHeaders.length > 0 && (
             <p className="font-bold font-sans text-[10pt] uppercase tracking-wide mb-1.5 border-l-4 border-slate-700 pl-2">
-              {t.testResults}
+              {page[`testResultsTitle_${lang}`] || page.testResultsTitle_vn || page.testResultsTitle || t.testResults}
             </p>
           )}
           <table
