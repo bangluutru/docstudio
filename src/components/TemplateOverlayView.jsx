@@ -67,7 +67,10 @@ const flattenAndExtractLangFields = (data) => {
 const interpolateHTML = (htmlTemplate, parsedData, currentLang) => {
     if (!htmlTemplate) return '';
 
-    return htmlTemplate.replace(/\{\{([\w_]+)\}\}/g, (match, keyName) => {
+    // Strip Gemini citation artifacts like [cite_start] and [cite: 5]
+    let cleanHtml = htmlTemplate.replace(/\[cite_start\]\s*/g, '').replace(/\[cite:\s*\d+\]/g, '');
+
+    return cleanHtml.replace(/\{\{([\w_]+)\}\}/g, (match, keyName) => {
         // Try exact match first, then fuzzy match
         let valObj = parsedData[keyName];
 
@@ -77,7 +80,7 @@ const interpolateHTML = (htmlTemplate, parsedData, currentLang) => {
             if (foundKey) valObj = parsedData[foundKey];
         }
 
-        if (valObj) {
+        if (valObj !== undefined && valObj !== null) {
             // If it's a language object
             if (typeof valObj === 'object' && ('vn' in valObj || 'en' in valObj || 'jp' in valObj)) {
                 return valObj[currentLang] || valObj['vn'] || valObj['en'] || valObj['jp'] || '';
@@ -87,7 +90,7 @@ const interpolateHTML = (htmlTemplate, parsedData, currentLang) => {
         }
 
         // Return a red placeholder if data is missing, so it's visible to user
-        return `<span class="bg-red-100 text-red-600 border border-red-300 px-1 rounded text-xs font-mono" title="Thiếu dữ liệu: ${keyName}">[${keyName}]</span>`;
+        return `<span class="bg-red-100 text-red-600 border border-red-300 px-1 rounded text-xs font-mono" title="Thiếu dữ liệu (Missing Key): ${keyName}">[${keyName}]</span>`;
     });
 };
 
@@ -160,7 +163,13 @@ const TemplateOverlayView = ({ displayLang }) => {
     // -----------------------------------------------------------------
     useEffect(() => {
         try {
-            const data = JSON.parse(jsonInput);
+            let data = JSON.parse(jsonInput);
+
+            // Unwrap if user pasted an array wrapper (like from Tab 1 JSON)
+            if (Array.isArray(data) && data.length > 0) {
+                data = data[0];
+            }
+
             const flatData = flattenAndExtractLangFields(data);
             setParsedData(flatData);
             setJsonError('');
