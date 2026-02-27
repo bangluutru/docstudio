@@ -1,0 +1,47 @@
+{
+    "meta": {
+        "schema_version": "1.1.0",
+        "awf_version": "4.0.0"
+    },
+    "project": {
+        "name": "DocStudio",
+        "type": "Web Application (React/Vite)",
+        "status": "Active Development"
+    },
+    "tech_stack": {
+        "frontend": {
+            "framework": "React 19 + Vite",
+            "styling": "Tailwind CSS",
+            "icons": "Lucide React",
+            "dnd": "dnd-kit"
+        },
+        "backend": {},
+        "database": {}
+    },
+    "database_schema": {
+        "tables": [],
+        "relationships": [],
+        "summary": "App hiện tại xử lý dữ liệu JSON truyền vào từ ngoài, chưa kết nối DB trực tiếp."
+    },
+    "api_endpoints": [],
+    "business_rules": [
+        "Render documents with 1:1 fidelity for printing/PDF export (In chuẩn như bản mẫu).",
+        "Support multi-language content on certificates (Vietnamese, English, Japanese).",
+        "Precise positioning for SVG stamps and elements (Các con dấu phải nằm đúng tọa độ tuyệt đối)."
+    ],
+    "features": [
+        "Certificate Rendering: Hiển thị chứng chỉ đa ngôn ngữ với các thông số tùy biến.",
+        "Analysis Report Rendering: Render trang báo cáo phân tích chi tiết.",
+        "Drag and Drop Content Management: Sắp xếp các thành phần tài liệu."
+    ],
+    "knowledge_items": {
+        "patterns": [
+            "SVG-in-table-cell rendering",
+            "Coordinate-based stamp positioning"
+        ],
+        "gotchas": [
+            "Watch out for page overflow when content exceeds page limits (Chú ý lỗi tràn trang khi in)"
+        ],
+        "conventions": []
+    }
+}
