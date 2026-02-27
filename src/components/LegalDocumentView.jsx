@@ -26,6 +26,14 @@ const getLangVal = (obj, baseKey, lang, defaultVal = '') => {
 };
 
 // =====================================================================
+// Helper: Strip Gemini citation markers like [cite: 1], [cite: 1, 2]
+// =====================================================================
+const stripCitations = (text) => {
+    if (typeof text !== 'string') return text;
+    return text.replace(/\s*\[cite:\s*[\d,\s]+\]/gi, '').trim();
+};
+
+// =====================================================================
 // UI Translations for the Legal Document module
 // =====================================================================
 const legalUiTranslations = {
@@ -141,9 +149,9 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
         }, 400);
     };
 
-    // --- Resolve data ---
-    const title = docData ? getLangVal(docData, 'title', displayLang) : '';
-    const content = docData ? getLangVal(docData, 'content', displayLang) : '';
+    // --- Resolve data (with citation stripping) ---
+    const title = docData ? stripCitations(getLangVal(docData, 'title', displayLang)) : '';
+    const content = docData ? stripCitations(getLangVal(docData, 'content', displayLang)) : '';
     const metaInfo = docData?.meta_info || null;
 
     return (
@@ -151,6 +159,8 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
             {/* Print styles specific to legal doc */}
             <style>{`
         @media print {
+          .no-print { display: none !important; }
+          body { background: white !important; margin: 0; padding: 0; }
           .legal-doc-print {
             width: 210mm !important;
             margin: 0 !important;
@@ -166,6 +176,10 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
           }
           .legal-doc-print table {
             page-break-inside: auto;
+          }
+          main {
+            padding: 0 !important;
+            background: white !important;
           }
         }
         .legal-prose h1 { font-size: 1.4em; font-weight: 800; margin: 1.2em 0 0.5em; text-align: center; text-transform: uppercase; }
@@ -326,14 +340,14 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
                             {metaInfo && (
                                 <div className="text-center mb-6 font-sans">
                                     <p className="text-[11pt] font-bold uppercase tracking-wider text-slate-600">
-                                        {getLangVal(metaInfo, 'issuer', displayLang)}
+                                        {stripCitations(getLangVal(metaInfo, 'issuer', displayLang))}
                                     </p>
                                     {metaInfo.doc_number && (
-                                        <p className="text-[10pt] text-slate-500 mt-1">{metaInfo.doc_number}</p>
+                                        <p className="text-[10pt] text-slate-500 mt-1">{stripCitations(metaInfo.doc_number)}</p>
                                     )}
                                     {(metaInfo.date_vn || metaInfo.date) && (
                                         <p className="text-[10pt] italic text-slate-400 mt-0.5">
-                                            {getLangVal(metaInfo, 'date', displayLang)}
+                                            {stripCitations(getLangVal(metaInfo, 'date', displayLang))}
                                         </p>
                                     )}
                                 </div>
