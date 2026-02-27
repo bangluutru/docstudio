@@ -1181,7 +1181,7 @@ const App = () => {
       {/* ============================================================
           RIGHT PANEL — PREVIEW
       ============================================================ */}
-      <main className="flex-grow bg-slate-200 min-h-screen overflow-y-auto relative p-4 md:p-8 flex flex-col items-center">
+      <main className="flex-grow bg-slate-200 min-h-screen relative p-4 md:p-8 flex flex-col items-center">
 
         {/* Floating Toolbar */}
         <div className="no-print w-full max-w-[210mm] mb-6 flex flex-wrap justify-between items-center gap-3 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-white/80 sticky top-4 z-[50]">
