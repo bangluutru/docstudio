@@ -132,6 +132,22 @@ const uiTranslations = {
 const STORAGE_KEY = 'docstudio_pages_v1';
 
 // =====================================================================
+// P0: Global Translation Helper (Single Source of Truth)
+// =====================================================================
+// Extracts a string/array from an object by checking:
+// 1. obj[`${baseKey}_${lang}`]
+// 2. obj[`${baseKey}_vn`] (fallback)
+// 3. obj[baseKey] (no language suffix fallback)
+// Returns empty string '' if none found, unless defaultVal is provided.
+const getLangVal = (obj, baseKey, lang, defaultVal = '') => {
+  if (!obj) return defaultVal;
+  if (obj[`${baseKey}_${lang}`] !== undefined) return obj[`${baseKey}_${lang}`];
+  if (obj[`${baseKey}_vn`] !== undefined) return obj[`${baseKey}_vn`];
+  if (obj[baseKey] !== undefined) return obj[baseKey];
+  return defaultVal;
+};
+
+// =====================================================================
 // P0-A: Overflow detection hook — watches a DOM element for overflow
 // =====================================================================
 function useOverflowDetect(ref) {
@@ -173,8 +189,9 @@ const PageCard = ({
   const contentRef = useRef(null);
   const isOverflowing = useOverflowDetect(contentRef);
 
-  const currentTitle = page[`title_${displayLang}`] || page.title_vn || '';
-  const currentContent = page[`content_${displayLang}`] || page.content_vn || [];
+  const currentTitle = getLangVal(page, 'title', displayLang);
+  const currentContent = getLangVal(page, 'content', displayLang, []);
+
   const isLastPage = index === totalPages - 1;
   const pageType = page.pageType || 'default'; // 'cover' | 'default' | 'appendix' | 'certificate'
 
@@ -201,9 +218,9 @@ const PageCard = ({
           </div>
 
           {/* Organization */}
-          {page.organization && (
+          {(page.organization_vn || page.organization || page[`organization_${displayLang}`]) && (
             <p className="text-[11pt] font-sans font-semibold text-slate-500 uppercase tracking-widest">
-              {page[`organization_${displayLang}`] || page.organization}
+              {getLangVal(page, 'organization', displayLang)}
             </p>
           )}
 
@@ -499,14 +516,14 @@ const CertificatePage = ({
   pageRef, isOverflowing, contentRef,
 }) => {
   const lang = displayLang;
-  const currentTitle = page[`title_${lang}`] || page.title_vn || '';
-  const currentContent = page[`content_${lang}`] || page.content_vn || [];
-  const currentFooter = page[`footer_${lang}`] || page.footer_vn || '';
+  const currentTitle = getLangVal(page, 'title', lang);
+  const currentContent = getLangVal(page, 'content', lang, []);
+  const currentFooter = getLangVal(page, 'footer', lang);
   const meta = page.meta || [];
-  const tableHeaders = page.table
-    ? (page.table[`headers_${lang}`] || page.table.headers_vn || [])
-    : [];
-  const tableRows = page.table?.rows || [];
+
+  const tableHeaders = page.table ? getLangVal(page.table, 'headers', lang, []) : [];
+  // CORE FIX: Use rows_en/jp/vn if available, fallback to rows, else []
+  const tableRows = page.table ? getLangVal(page.table, 'rows', lang, []) : [];
 
   const handleMetaValueChange = (i, newVal) => {
     const newMeta = meta.map((m, mi) => {
@@ -522,16 +539,39 @@ const CertificatePage = ({
     const newRows = tableRows.map((row, r) =>
       r === ri ? row.map((cell, c) => c === ci ? newVal : cell) : row
     );
-    onEditChange(index, 'table', { ...page.table, rows: newRows });
+
+    // Attempt to keep old 'rows' fallback synced if it existed, but prioritize language rows
+    const updatedTable = { ...page.table };
+    // Always store under the language key to enforce isolation and prevent overwriting
+    updatedTable[`rows_${lang}`] = newRows;
+
+    // Also update generic rows if we are on VN to smooth transition for older JSON
+    if (lang === 'vn' && updatedTable.rows) {
+      updatedTable.rows = newRows;
+    }
+
+    onEditChange(index, 'table', updatedTable);
   };
 
   const handleAddTableRow = () => {
     const emptyRow = tableHeaders.map(() => '');
-    onEditChange(index, 'table', { ...page.table, rows: [...tableRows, emptyRow] });
+    const newRows = [...tableRows, emptyRow];
+
+    const updatedTable = { ...page.table };
+    updatedTable[`rows_${lang}`] = newRows;
+    if (lang === 'vn' && updatedTable.rows) updatedTable.rows = newRows;
+
+    onEditChange(index, 'table', updatedTable);
   };
 
   const handleDeleteTableRow = (ri) => {
-    onEditChange(index, 'table', { ...page.table, rows: tableRows.filter((_, r) => r !== ri) });
+    const newRows = tableRows.filter((_, r) => r !== ri);
+
+    const updatedTable = { ...page.table };
+    updatedTable[`rows_${lang}`] = newRows;
+    if (lang === 'vn' && updatedTable.rows) updatedTable.rows = newRows;
+
+    onEditChange(index, 'table', updatedTable);
   };
 
   return (
@@ -545,19 +585,19 @@ const CertificatePage = ({
       {/* Doc Header — date / recipient line above title (Japanese doc style) */}
       {page.doc_header && (
         <div className="font-sans flex justify-between items-start mb-3 text-[9pt] text-black">
-          <div className="font-normal">{page.doc_header[`recipient_${lang}`] || page.doc_header.recipient_vn || page.doc_header.recipient || ''}</div>
-          <div className="font-normal text-right">{page.doc_header[`date_${lang}`] || page.doc_header.date_vn || page.doc_header.date || ''}</div>
+          <div className="font-normal">{getLangVal(page.doc_header, 'recipient', lang)}</div>
+          <div className="font-normal text-right">{getLangVal(page.doc_header, 'date', lang)}</div>
         </div>
       )}
 
       {/* Doc Header */}
       <div className="font-sans flex justify-between items-start mb-3 text-[8pt] text-slate-500">
         <div>
-          <div className="font-bold tracking-widest">{page[`formNo_${lang}`] || page.formNo_vn || page.formNo || ''}</div>
-          <div className="font-normal italic text-slate-400">{page[`internalReport_${lang}`] || page.internalReport_vn || page.internalReport || ''}</div>
+          <div className="font-bold tracking-widest">{getLangVal(page, 'formNo', lang)}</div>
+          <div className="font-normal italic text-slate-400">{getLangVal(page, 'internalReport', lang)}</div>
         </div>
         <div className="text-right italic text-slate-400">
-          {page[`subtitle_${lang}`] || page.subtitle_vn || page.subtitle || ''}
+          {getLangVal(page, 'subtitle', lang)}
         </div>
       </div>
 
@@ -565,7 +605,7 @@ const CertificatePage = ({
       {page.showBadge !== false && (
         <div className="flex items-center justify-center gap-2 text-blue-500 mb-2 mt-4">
           <span className="text-[9px] font-sans font-bold uppercase tracking-widest border border-blue-200 px-3 py-0.5 rounded-full">
-            {page[`badge_${lang}`] || page.badge_vn || page.badge || t.certificateLabel}
+            {getLangVal(page, 'badge', lang, t.certificateLabel)}
           </span>
         </div>
       )}
@@ -589,8 +629,8 @@ const CertificatePage = ({
       {/* Company Info under title (right aligned) */}
       {page.company_info && (
         <div className="text-right font-sans text-[10.5pt] font-bold mb-6 mr-4 leading-snug relative z-10">
-          <div>{page.company_info[`name_${lang}`] || page.company_info.name_vn || page.company_info.name || ''}</div>
-          <div className="mt-0.5">{page.company_info[`department_${lang}`] || page.company_info.department_vn || page.company_info.department || ''}</div>
+          <div>{getLangVal(page.company_info, 'name', lang)}</div>
+          <div className="mt-0.5">{getLangVal(page.company_info, 'department', lang)}</div>
         </div>
       )}
 
@@ -609,8 +649,8 @@ const CertificatePage = ({
         >
           <tbody>
             {meta.map((m, i) => {
-              const label = m[`label_${lang}`] || m.label_vn || m.label_en || '';
-              const rawVal = m[`value_${lang}`] ?? m.value ?? '';
+              const label = getLangVal(m, 'label', lang);
+              const rawVal = getLangVal(m, 'value', lang);
               return (
                 <tr key={i}>
                   <td
@@ -642,9 +682,9 @@ const CertificatePage = ({
       {/* Data table — test results */}
       {page.table && (
         <div ref={contentRef} className="flex-grow overflow-hidden">
-          {page[`testResultsTitle_${lang}`] || page.testResultsTitle_vn || page.testResultsTitle || tableHeaders.length > 0 && (
+          {(getLangVal(page, 'testResultsTitle', lang) || tableHeaders.length > 0) && (
             <p className="font-bold font-sans text-[10pt] uppercase tracking-wide mb-1.5 border-l-4 border-slate-700 pl-2">
-              {page[`testResultsTitle_${lang}`] || page.testResultsTitle_vn || page.testResultsTitle || t.testResults}
+              {getLangVal(page, 'testResultsTitle', lang, t.testResults)}
             </p>
           )}
           <table
