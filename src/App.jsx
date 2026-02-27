@@ -542,6 +542,14 @@ const CertificatePage = ({
     >
       <DeletePageBtn onDelete={() => onDeletePage(index)} />
 
+      {/* Doc Header — date / recipient line above title (Japanese doc style) */}
+      {page.doc_header && (
+        <div className="font-sans flex justify-between items-start mb-3 text-[9pt] text-black">
+          <div className="font-normal">{page.doc_header[`recipient_${lang}`] || page.doc_header.recipient_vn || page.doc_header.recipient || ''}</div>
+          <div className="font-normal text-right">{page.doc_header[`date_${lang}`] || page.doc_header.date_vn || page.doc_header.date || ''}</div>
+        </div>
+      )}
+
       {/* Doc Header */}
       <div className="font-sans flex justify-between items-start mb-3 text-[8pt] text-slate-500 uppercase tracking-widest">
         <div>
@@ -658,21 +666,48 @@ const CertificatePage = ({
                       >×</button>
                     </td>
                   )}
-                  {row.map((cell, ci) => (
-                    <td
-                      key={ci}
-                      style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', fontFamily: 'inherit' }}
-                    >
-                      {isEditing ? (
-                        <input
-                          className="w-full bg-amber-50 border-b border-amber-300 focus:outline-none text-center text-[10pt]"
-                          style={{ fontFamily: 'inherit', minWidth: 40 }}
-                          value={cell}
-                          onChange={(e) => handleCellChange(ri, ci, e.target.value)}
-                        />
-                      ) : cell}
-                    </td>
-                  ))}
+                  {row.map((cell, ci) => {
+                    // SVG cell detection: cell is a string starting with '<svg' OR an object {svg, size_mm}
+                    const isSvgObj = cell && typeof cell === 'object' && cell.svg;
+                    const isSvgStr = typeof cell === 'string' && cell.trimStart().startsWith('<svg');
+                    if (isSvgStr || isSvgObj) {
+                      const svgContent = isSvgObj ? cell.svg : cell;
+                      const sizeMm = (isSvgObj ? cell.size_mm : null) || 14;
+                      const rotation = (isSvgObj ? cell.rotation : null) || 0;
+                      return (
+                        <td
+                          key={ci}
+                          style={{ border: '1px solid #000', padding: '4px', textAlign: 'center', fontFamily: 'inherit' }}
+                        >
+                          <div
+                            style={{
+                              display: 'inline-block',
+                              width: `${sizeMm}mm`,
+                              height: `${sizeMm}mm`,
+                              transform: `rotate(${rotation}deg)`,
+                              verticalAlign: 'middle',
+                            }}
+                            dangerouslySetInnerHTML={{ __html: svgContent }}
+                          />
+                        </td>
+                      );
+                    }
+                    return (
+                      <td
+                        key={ci}
+                        style={{ border: '1px solid #000', padding: '6px 8px', textAlign: 'center', fontFamily: 'inherit' }}
+                      >
+                        {isEditing ? (
+                          <input
+                            className="w-full bg-amber-50 border-b border-amber-300 focus:outline-none text-center text-[10pt]"
+                            style={{ fontFamily: 'inherit', minWidth: 40 }}
+                            value={cell}
+                            onChange={(e) => handleCellChange(ri, ci, e.target.value)}
+                          />
+                        ) : cell}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
               {isEditing && (
