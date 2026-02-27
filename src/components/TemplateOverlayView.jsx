@@ -59,6 +59,46 @@ const DraggableLabel = ({ id, label, position, value, fontScale }) => {
 };
 
 // =====================================================================
+// Helper: Deep flatten JSON and group language keys
+// =====================================================================
+const flattenAndExtractLangFields = (data) => {
+    const flat = {};
+    const recurse = (obj, prefix = '') => {
+        if (Array.isArray(obj)) {
+            obj.forEach((item, i) => recurse(item, `${prefix}[${i}].`));
+        } else if (obj !== null && typeof obj === 'object') {
+            const isLangObj = Object.keys(obj).some(k => ['vn', 'en', 'jp'].includes(k)) &&
+                Object.values(obj).every(v => typeof v === 'string' || !v);
+            if (isLangObj) {
+                flat[prefix.replace(/\.$/, '')] = obj;
+            } else {
+                Object.entries(obj).forEach(([k, v]) => recurse(v, `${prefix}${k}.`));
+            }
+        } else {
+            flat[prefix.replace(/\.$/, '')] = String(obj);
+        }
+    };
+    recurse(data);
+
+    const grouped = {};
+    const langRegex = /_(vn|en|jp)$/;
+    Object.entries(flat).forEach(([key, value]) => {
+        const match = key.match(langRegex);
+        if (match) {
+            const baseKey = key.replace(langRegex, '');
+            const lang = match[1];
+            if (!grouped[baseKey]) grouped[baseKey] = {};
+            if (typeof grouped[baseKey] === 'object') {
+                grouped[baseKey][lang] = value;
+            }
+        } else {
+            grouped[key] = value;
+        }
+    });
+    return grouped;
+};
+
+// =====================================================================
 // TemplateOverlayView — The Pixel-Perfect Overlay Module
 // =====================================================================
 const TemplateOverlayView = ({ displayLang }) => {
@@ -76,25 +116,28 @@ const TemplateOverlayView = ({ displayLang }) => {
     useEffect(() => {
         try {
             const data = JSON.parse(jsonInput);
-            setParsedData(data);
+            const flatData = flattenAndExtractLangFields(data);
+            setParsedData(flatData);
             setError('');
 
             // Initialize fields if new keys found
             setFields((prev) => {
                 const currentIds = prev.map(f => f.id);
                 const newFields = [...prev];
-                Object.keys(data).forEach((key, index) => {
+                Object.keys(flatData).forEach((key, index) => {
                     if (!currentIds.includes(key)) {
-                        // Default position scattered slightly to not overlap completely
+                        // Scatter position so they don't overlap completely
+                        const col = index % 3;
+                        const row = Math.floor(index / 3);
                         newFields.push({
                             id: key,
-                            position: { x: 10, y: 10 + (index * 5) },
+                            position: { x: 5 + (col * 30), y: 5 + (row * 6) },
                             fontScale: 1.0
                         });
                     }
                 });
                 // Remove deleted keys
-                return newFields.filter(f => Object.keys(data).includes(f.id));
+                return newFields.filter(f => Object.keys(flatData).includes(f.id));
             });
         } catch (err) {
             setError('JSON không hợp lệ');
