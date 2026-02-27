@@ -17,12 +17,14 @@ import {
   BookOpen,
   Scale,
   Scissors,
+  Combine,
 } from 'lucide-react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import UndoToast from './components/UndoToast';
 import PageNavigator from './components/PageNavigator';
 import LegalDocumentView from './components/LegalDocumentView';
 import PdfSplitterView from './components/PdfSplitterView';
+import PdfMergerView from './components/PdfMergerView';
 
 // --- UI Translations ---
 const uiTranslations = {
@@ -1041,6 +1043,15 @@ const App = () => {
         >
           <Scissors size={15} /> {activeTab === 'pdf-split' ? (displayLang === 'vn' ? 'Tách PDF' : displayLang === 'en' ? 'PDF Splitter' : 'PDF分割') : '✂️'}
         </button>
+        <button
+          onClick={() => setActiveTab('pdf-merge')}
+          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-3 transition-all ${activeTab === 'pdf-merge'
+            ? 'border-violet-600 text-violet-700 bg-violet-50/50'
+            : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+            }`}
+        >
+          <Combine size={15} /> {activeTab === 'pdf-merge' ? (displayLang === 'vn' ? 'Ghép PDF' : displayLang === 'en' ? 'PDF Merger' : 'PDF結合') : '📂'}
+        </button>
       </div>
 
       {/* ============================================================
@@ -1050,6 +1061,8 @@ const App = () => {
         <LegalDocumentView displayLang={displayLang} onLangChange={setDisplayLang} />
       ) : activeTab === 'pdf-split' ? (
         <PdfSplitterView />
+      ) : activeTab === 'pdf-merge' ? (
+        <PdfMergerView displayLang={displayLang} />
       ) : (
         <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900">
 
