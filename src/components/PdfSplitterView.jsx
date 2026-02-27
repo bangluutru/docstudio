@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { PDFDocument } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import {
     Upload,
     Scissors,
@@ -12,8 +13,8 @@ import {
     X,
 } from 'lucide-react';
 
-// Configure pdf.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Configure pdf.js worker using Vite ?url import
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 
 // =====================================================================
 // PdfSplitterView — PDF Page Splitter & Merger
@@ -180,8 +181,8 @@ const PdfSplitterView = () => {
                         onDrop={handleDrop}
                         onClick={() => fileInputRef.current?.click()}
                         className={`w-full min-h-[400px] border-3 border-dashed rounded-2xl flex flex-col items-center justify-center gap-5 cursor-pointer transition-all ${isDragging
-                                ? 'border-rose-400 bg-rose-50 scale-[1.01]'
-                                : 'border-slate-300 bg-white hover:border-rose-300 hover:bg-rose-50/30'
+                            ? 'border-rose-400 bg-rose-50 scale-[1.01]'
+                            : 'border-slate-300 bg-white hover:border-rose-300 hover:bg-rose-50/30'
                             }`}
                     >
                         <Upload size={64} strokeWidth={1.2} className={isDragging ? 'text-rose-400' : 'text-slate-300'} />
@@ -266,14 +267,14 @@ const PdfSplitterView = () => {
                                             key={index}
                                             onClick={() => togglePage(index)}
                                             className={`relative cursor-pointer group rounded-xl overflow-hidden shadow-md border-3 transition-all hover:shadow-lg hover:scale-[1.02] ${isSelected
-                                                    ? 'border-rose-500 ring-2 ring-rose-200 bg-rose-50'
-                                                    : 'border-transparent bg-white hover:border-slate-300'
+                                                ? 'border-rose-500 ring-2 ring-rose-200 bg-rose-50'
+                                                : 'border-transparent bg-white hover:border-slate-300'
                                                 }`}
                                         >
                                             {/* Selection badge */}
                                             <div className={`absolute top-2 left-2 z-10 w-6 h-6 rounded-md flex items-center justify-center transition-all ${isSelected
-                                                    ? 'bg-rose-500 text-white shadow-md'
-                                                    : 'bg-white/80 text-slate-400 border border-slate-200 group-hover:border-slate-400'
+                                                ? 'bg-rose-500 text-white shadow-md'
+                                                : 'bg-white/80 text-slate-400 border border-slate-200 group-hover:border-slate-400'
                                                 }`}>
                                                 {isSelected ? <CheckSquare size={14} /> : <Square size={14} />}
                                             </div>
