@@ -260,6 +260,26 @@ export const exportMappedExcel = async (
         currentRow.commit();
     });
 
+    // 4.5. Fix exceljs bug where spliceRows corrupts shared formula tracking
+    // This removes the "Shared Formula master must exist above and or left of clone" crash
+    worksheet.eachRow((row) => {
+        row.eachCell((cell) => {
+            const v = cell.value;
+            if (v && typeof v === 'object' && v.sharedFormula) {
+                if (v.formula) {
+                    // Master cell: convert to standalone formula
+                    cell.value = { formula: v.formula, result: v.result };
+                } else {
+                    // Clone cell: convert to static value to prevent layout violations
+                    cell.value = v.result !== undefined ? v.result : '';
+                }
+            } else if (cell.type === ExcelJS.ValueType.Formula && cell.formulaType === 'shared') {
+                // Fallback for some master states
+                cell.value = cell.result !== undefined ? cell.result : '';
+            }
+        });
+    });
+
     // 5. Generate and download the file
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
