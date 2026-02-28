@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
     Printer,
     FileText,
     Code,
     Languages,
     Maximize2,
+    Minimize2,
+    Shrink,
     RefreshCw,
     Download,
     Sparkles,
@@ -102,11 +103,12 @@ const htmlPromptText = `Chào bạn, tôi muốn nhờ bạn đọc hình ảnh 
 Yêu cầu dành cho Mã HTML:
 1. Vẽ lại khung xương (tables, borders, layouts) y hệt ảnh gốc bằng Tailwind CSS. Hãy để độ rộng các cột tự động co giãn mềm dẻo theo lượng text bên trong (flexible width), KHÔNG DÙNG phần trăm cứng.
 2. Tuyệt đối không gõ cứng (hardcode) chữ của bất kỳ ngôn ngữ nào vào HTML. Mọi văn bản xuất hiện trên tờ giấy, từ "Chữ tĩnh" (tiêu đề cột, tên công ty in sẵn) đến "Chữ động" (thông số do con người điền) ĐỀU PHẢI được thay thế bằng một Biến Ngoặc Nhọn (Ví dụ: {{label_so_lo}} cho tiêu đề, {{so_lo}} cho chữ điền vào).
-3. Chống Tràn Dòng & Xếp Chữ Dọc: Bản dịch tiếng Việt/Anh rất dài. Nếu các chữ dài làm phình to chiều cao ô hoặc phá vỡ bảng, BẮT BUỘC:
+3. Chống Tràn Dòng & Xếp Chữ Dọc: Bản dịch tiếng Việt/Anh rất dài. BẮT BUỘC:
    - Ép bẻ từ bằng class "break-words" hoặc "whitespace-pre-wrap".
-   - Xếp chữ theo chiều dọc "flex-col" nếu ô có tiêu đề + nội dung nằm ngang quá chật.
+   - Xếp chữ theo chiều dọc "flex-col".
    - Dùng class thu nhỏ chữ như "text-[10px]" hoặc "text-xs", "leading-tight".
-4. Chỉ cần trả về nội dung bên trong cặp thẻ <div> bọc ngoài cùng.`;
+4. KHÔNG FIX CỨNG CHIỀU CAO: Tuyệt đối không dùng các class fix chiều cao (như h-32, h-64, min-h-[200px]) cho các khoảng trống/ô trống. Hãy để chiều cao tự động co giãn. Để tạo khoảng không gian thưa, chỉ dùng padding nhẹ (p-4).
+5. Chỉ cần trả về nội dung bên trong cặp thẻ <div> bọc ngoài cùng.`;
 
 const jsonPromptText = `Dựa trên bức ảnh phiếu kết quả này, và dựa vào danh sách các Biến Ngoặc Nhọn {{...}} mà bạn đã tạo cho tôi trong mẫu HTML, hãy giúp tôi trích xuất toàn bộ dữ liệu chữ số đang được điền trên giấy.
 
@@ -315,11 +317,33 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
 
                     {/* Step 1: HTML Template */}
                     <div className="bg-white p-0 rounded-2xl shadow-sm border border-slate-200 flex-grow flex flex-col min-h-[300px] overflow-hidden">
-                        <div className="bg-slate-100 p-3 border-b border-slate-200 flex justify-between items-center shrink-0">
+                        <div className="bg-slate-100 p-2 lg:p-3 border-b border-slate-200 flex justify-between items-center shrink-0 flex-wrap gap-2">
                             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
                                 <span className="w-5 h-5 bg-white shadow-sm rounded flex items-center justify-center text-slate-700">1</span>
                                 HTML Template (Bản vẽ)
                             </h3>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => {
+                                        const res = htmlInput.replace(/\b(min-h-|h-)(1[6-9]|[2-9][0-9]|100|screen|full|min|max|fit|\[.*?\])\b/g, '').replace(/\s{2,}/g, ' ');
+                                        setHtmlInput(res);
+                                    }}
+                                    className="text-[9px] bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-2 py-1 rounded shadow-sm font-bold flex items-center gap-1 transition-all"
+                                    title="Gọt bỏ các lệnh ép chiều cao cố định (như h-64, min-h-...) giúp bảng co rút tự nhiên lại"
+                                >
+                                    <Minimize2 size={10} className="text-rose-500" /> Gọt Chiều Cao
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const res = htmlInput.replace(/\b([mp][tbyx]?-|gap-)(1[0-9]|[2-9][0-9]|\[.*?\])\b/g, '$1' + '2').replace(/\s{2,}/g, ' ');
+                                        setHtmlInput(res);
+                                    }}
+                                    className="text-[9px] bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-2 py-1 rounded shadow-sm font-bold flex items-center gap-1 transition-all"
+                                    title="Thu nhỏ lề, khoảng cách (margin, padding) lớn xuống mức thấp nhất để tiết kiệm diện tích"
+                                >
+                                    <Shrink size={10} className="text-emerald-500" /> Ép Khoảng Trắng
+                                </button>
+                            </div>
                         </div>
                         <PromptHelper title="Lệnh AI Vẽ HTML Template" promptText={htmlPromptText} />
                         <textarea
