@@ -1,0 +1,33 @@
+/* =====================================================================
+   Print & Global Styles for DocStudio (Certificate/Report Module)
+   ===================================================================== */
+@media print {
+  @page { size: A4 portrait; margin: 0; }
+  body { background: white !important; margin: 0; padding: 0; }
+  .no-print { display: none !important; }
+  #print-area {
+    width: 210mm !important; margin: 0 !important;
+    padding: 0 !important; display: block !important;
+  }
+  .page-a4 {
+    width: 210mm !important; height: 297mm !important;
+    margin: 0 !important; padding: 25mm !important;
+    box-shadow: none !important; border: none !important;
+    page-break-after: always !important;
+    page-break-inside: avoid !important;
+    overflow: hidden;
+    display: flex !important; flex-direction: column !important;
+  }
+}
+
+.page-a4 { box-sizing: border-box; }
+
+.custom-scrollbar::-webkit-scrollbar { width: 5px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+
+.page-font { font-family: 'Lora', Georgia, serif; }
+
+/* Smooth group-hover for page delete button */
+.page-a4 .no-print.absolute { transition: opacity 0.15s; }
+.page-a4:hover .no-print.absolute { opacity: 1 !important; }

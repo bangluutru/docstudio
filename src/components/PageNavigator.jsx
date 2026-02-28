@@ -142,17 +142,20 @@ const PageNavigator = ({ pages, pageRefs, displayLang, onReorder, pageListTitle 
             >
                 <SortableContext items={items} strategy={verticalListSortingStrategy}>
                     <div className="space-y-0.5 max-h-60 overflow-y-auto custom-scrollbar pr-1">
-                        {pages.map((page, i) => (
-                            <SortableNavItem
-                                key={i}
-                                id={String(i)}
-                                index={i}
-                                page={page}
-                                isActive={activePageIndex === i}
-                                onClick={() => scrollToPage(i)}
-                                displayLang={displayLang}
-                            />
-                        ))}
+                        {pages.map((p, i) => {
+                            const stableKey = p.title_vn || p.title_en || p.title_jp || `page-${i}`;
+                            return (
+                                <SortableNavItem
+                                    key={stableKey}
+                                    id={String(i)}
+                                    index={i}
+                                    page={p}
+                                    isActive={activePageIndex === i}
+                                    onClick={() => scrollToPage(i)}
+                                    displayLang={displayLang}
+                                />
+                            );
+                        })}
                     </div>
                 </SortableContext>
                 <DragOverlay>
