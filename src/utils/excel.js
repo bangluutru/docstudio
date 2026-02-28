@@ -100,8 +100,8 @@ export const readExcelFile = async (file, isSource = true) => {
                     // Return all parsed data rows for preview (so users can see all items, not just first 5)
                     resolve({ headers, sampleRows: dataRows, allRows: dataRows });
                 } else {
-                    // For target (Supplier Template), we only need headers
-                    resolve({ headers });
+                    // For target (Supplier Template), we need headers, the raw buffer (to mutate later), and the header index (so we know where to inject rows)
+                    resolve({ headers, headerRowIndex, rawBuffer: data });
                 }
             } catch (error) {
                 reject(error);
@@ -194,35 +194,79 @@ export const autoMapFields = (sourceHeaders, targetHeaders) => {
 };
 
 // =====================================================================
-// 3. Export Mapped Data
+// 3. Export Mapped Data (Using ExcelJS to preserve formatting)
 // =====================================================================
-export const exportMappedExcel = (sourceAllRows, targetHeaders, mappingRules, fileName = 'Mapped_Order.xlsx') => {
-    // Transform data based on rules
-    const outputRows = sourceAllRows.map(sourceRow => {
-        const outputRow = {};
+import ExcelJS from 'exceljs';
 
-        // Initialize all target headers with empty string to preserve column order
-        targetHeaders.forEach(th => {
-            outputRow[th] = '';
-        });
+export const exportMappedExcel = async (
+    sourceAllRows,
+    targetHeaders,
+    mappingRules,
+    targetBuffer,
+    targetHeaderRowIndex,
+    fileName = 'Mapped_Order.xlsx'
+) => {
+    // 1. Load the original template buffer to preserve all formatting, logos, and outside text
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(targetBuffer);
+    const worksheet = workbook.worksheets[0]; // operate on the first sheet
 
-        // Fill mapped values
-        mappingRules.forEach(rule => {
-            // If we have a source column mapped to a target column
-            if (rule.sourceCol && rule.targetCol && targetHeaders.includes(rule.targetCol)) {
-                // Just copy the value exactly as is
-                outputRow[rule.targetCol] = sourceRow[rule.sourceCol] !== undefined ? sourceRow[rule.sourceCol] : '';
-            }
-        });
+    // 2. Locate the header row in the template (ExcelJS is 1-indexed)
+    const headerRowNumber = targetHeaderRowIndex + 1;
+    const headerRow = worksheet.getRow(headerRowNumber);
 
-        return outputRow;
+    // Map header names to column numbers in the template
+    const colMap = {};
+    headerRow.eachCell((cell, colNumber) => {
+        const val = String(cell.value || '').trim();
+        if (val) colMap[val] = colNumber;
     });
 
-    // Create workbook and worksheet
-    const worksheet = XLSX.utils.json_to_sheet(outputRows, { header: targetHeaders });
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Mapped Order");
+    const dataStartRowNumber = headerRowNumber + 1;
 
-    // Save via browser download
-    XLSX.writeFile(workbook, fileName);
+    // 3. Shift footer rows down to make room for all data rows 
+    const rowCount = sourceAllRows.length;
+    // We assume the template provides 1 blank row for data. 
+    // If we have 10 source items, we need to insert 9 new rows.
+    const shiftBy = Math.max(0, rowCount - 1);
+
+    if (shiftBy > 0) {
+        // Insert empty rows to push the footer down
+        worksheet.spliceRows(dataStartRowNumber + 1, 0, ...new Array(shiftBy).fill([]));
+
+        // Copy styles from the first data template row to the newly inserted rows
+        const baseRow = worksheet.getRow(dataStartRowNumber);
+        for (let i = 1; i <= shiftBy; i++) {
+            const newRow = worksheet.getRow(dataStartRowNumber + i);
+            baseRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                newRow.getCell(colNumber).style = cell.style; // inherit borders, fonts, colors
+            });
+        }
+    }
+
+    // 4. Write mapped data into the rows
+    sourceAllRows.forEach((sourceRow, index) => {
+        const currentRow = worksheet.getRow(dataStartRowNumber + index);
+
+        mappingRules.forEach(rule => {
+            if (rule.sourceCol && rule.targetCol && colMap[rule.targetCol]) {
+                const colNum = colMap[rule.targetCol];
+                // Only write if there's a mapped value
+                if (sourceRow[rule.sourceCol] !== undefined && sourceRow[rule.sourceCol] !== '') {
+                    currentRow.getCell(colNum).value = sourceRow[rule.sourceCol];
+                }
+            }
+        });
+        currentRow.commit();
+    });
+
+    // 5. Generate and download the file
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    window.URL.revokeObjectURL(url);
 };

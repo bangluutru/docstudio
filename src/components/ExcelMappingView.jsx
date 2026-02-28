@@ -19,6 +19,8 @@ export default function ExcelMappingView({ t: tProp, displayLang }) {
     // Target (Supplier)
     const [targetFile, setTargetFile] = useState(null);
     const [targetHeaders, setTargetHeaders] = useState([]);
+    const [targetBuffer, setTargetBuffer] = useState(null);
+    const [targetHeaderRowIndex, setTargetHeaderRowIndex] = useState(null);
 
     // Mapping & Profiles
     const [mappingRules, setMappingRules] = useState([]);
@@ -59,6 +61,8 @@ export default function ExcelMappingView({ t: tProp, displayLang }) {
             } else {
                 setTargetFile(file.name);
                 setTargetHeaders(result.headers);
+                setTargetBuffer(result.rawBuffer);
+                setTargetHeaderRowIndex(result.headerRowIndex);
             }
 
             // Auto-trigger auto-map if both files are present and no rules exist
@@ -85,7 +89,7 @@ export default function ExcelMappingView({ t: tProp, displayLang }) {
         setError('');
     };
 
-    const handleExport = () => {
+    const handleExport = async () => {
         if (sourceAllData.length === 0 || targetHeaders.length === 0) {
             setError("Cannot export: missing data or template.");
             return;
@@ -94,10 +98,23 @@ export default function ExcelMappingView({ t: tProp, displayLang }) {
             setError("Cannot export: no mapping rules defined.");
             return;
         }
+
+        setIsProcessing(true);
+        setError('');
+
         try {
-            exportMappedExcel(sourceAllData, targetHeaders, mappingRules, `Mapped_${sourceFile || 'Order'}`);
+            await exportMappedExcel(
+                sourceAllData,
+                targetHeaders,
+                mappingRules,
+                targetBuffer,
+                targetHeaderRowIndex,
+                `Mapped_${sourceFile || 'Order'}`
+            );
         } catch (err) {
             setError(`Export failed: ${err.message}`);
+        } finally {
+            setIsProcessing(false);
         }
     };
 
