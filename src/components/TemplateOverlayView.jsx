@@ -173,6 +173,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     // -----------------------------------------------------------------
     const [currentLang, setCurrentLang] = useState(globalDisplayLang || 'vn');
     const [isEditing, setIsEditing] = useState(false);
+    const [contentScale, setContentScale] = useState(1);
 
     // Sync with global lang if it changes, but allow local override
     useEffect(() => {
@@ -361,7 +362,15 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                                 Bản Cầm Tay (Live Preview)
                             </span>
                         </div>
-                        <div className="flex gap-2 text-[10px] font-bold">
+                        <div className="flex gap-2 text-[10px] font-bold items-center">
+                            {/* Khung điều chỉnh Scale bằng tay */}
+                            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 mr-2 border border-slate-200">
+                                <span className="text-slate-500 font-medium px-1 uppercase shrink-0">Zoom in:</span>
+                                <button onClick={() => setContentScale(s => Math.max(0.4, Number((s - 0.05).toFixed(2))))} className="px-2 py-1 bg-white rounded shadow-sm hover:bg-slate-50 text-slate-600">-</button>
+                                <span className="w-10 text-center text-slate-600 cursor-default">{Math.round(contentScale * 100)}%</span>
+                                <button onClick={() => setContentScale(s => Math.min(2, Number((s + 0.05).toFixed(2))))} className="px-2 py-1 bg-white rounded shadow-sm hover:bg-slate-50 text-slate-600">+</button>
+                            </div>
+
                             <button
                                 onClick={() => setCurrentLang('vn')}
                                 className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${currentLang === 'vn' ? 'bg-sky-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
@@ -387,19 +396,28 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                     <div className="flex-grow overflow-auto p-4 md:p-8 flex justify-center bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-slate-300/50">
                         {/* THE ACTUAL PAPER TO PRINT */}
                         <div
-                            className={`bg-white shadow-2xl transition-all print-target outline-none 
-                            [&>div]:max-w-none [&>div]:w-full [&>div]:h-full [&>div]:m-0 [&>div]:p-0 [&>div]:border-none [&>div]:shadow-none
+                            className={`bg-white shadow-2xl transition-all print-target outline-none relative
+                            [&>div]:max-w-none [&>div]:w-full [&>div]:h-full [&>div]:m-0 [&>div]:border-none [&>div]:shadow-none
                             ${isEditing ? 'ring-4 ring-amber-400 border-amber-500' : ''}`}
                             style={{
                                 width: '210mm',
                                 minHeight: '297mm', // strict A4 ratio for preview
                                 padding: '12mm', // Internal safe margin
-                                transformOrigin: 'top center',
                             }}
                             contentEditable={isEditing}
                             suppressContentEditableWarning={true}
-                            dangerouslySetInnerHTML={{ __html: finalHtml }}
-                        />
+                        >
+                            {/* Inner Scaling Wrapper wrapper */}
+                            <div
+                                style={{
+                                    transform: `scale(${contentScale})`,
+                                    transformOrigin: 'top left',
+                                    width: `${100 / contentScale}%`,
+                                    minHeight: `${100 / contentScale}%`
+                                }}
+                                dangerouslySetInnerHTML={{ __html: finalHtml }}
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -413,31 +431,42 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
         @media print {
           @page {
             size: A4;
-            margin: 0; /* Remove default browser margins to avoid headers/footers */
+            margin: 0; 
           }
+          /* Force unclipping at global level so no deep flex box can truncate our absolute PDF bounds */
+          * {
+            overflow: visible !important;
+          }
+          /* Hide UI wrappers from vision and structure */
           body * {
-            visibility: hidden; /* Hide absolutely everything */
+            visibility: hidden;
           }
+          /* Unhide the target paper */
           .print-target, .print-target * {
-            visibility: visible; /* Show only our target A4 paper */
+            visibility: visible;
           }
           .print-target {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 210mm;
-            height: 297mm; /* Force exactly 1 A4 page if content fits */
-            margin: 0;
-            padding: 0;
+            /* Position exactly over the print canvas */
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            
+            /* Strict Dimensions: 1 A4 Page */
+            width: 210mm !important;
+            height: 297mm !important;
+            min-height: 297mm !important;
+            
+            /* Internal margin is handled by our 12mm padding inside component */
+            margin: 0 !important;
             box-shadow: none !important;
             border: none !important;
             background-color: white !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
             
-          /* Ensure Tailwind background colors print */
-          * {
+            /* CLIPPING: Force cut off anything spilling out of 1 page to avoid blank page overflow */
+            overflow: hidden !important; 
+          }
+          /* Ensure Tailwind background colors print correctly */
+          .print-target * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
