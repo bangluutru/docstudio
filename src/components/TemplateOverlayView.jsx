@@ -286,16 +286,8 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
         setHtmlInput(res);
     };
 
-    const stepDownHeight = () => {
-        const scale = ['0', '0.5', '1', '1.5', '2', '2.5', '3', '3.5', '4', '5', '6', '7', '8', '9', '10', '11', '12', '14', '16', '20', '24', '28', '32', '36', '40', '44', '48', '52', '56', '60', '64', '72', '80', '96'];
-        const res = htmlInput.replace(/\b(min-h-|h-)(\d+|1\.5|2\.5|3\.5)(?![a-zA-Z0-9_-])/g, (match, prefix, val) => {
-            const idx = scale.indexOf(val);
-            if (idx > 1) return prefix + scale[Math.max(1, idx - 3)];
-            return match;
-        }).replace(/\b(min-h-|h-)\[(\d+)px\](?![a-zA-Z0-9_-])/g, (match, prefix, val) => {
-            const px = parseInt(val, 10);
-            return `${prefix}[${Math.max(4, px - 16)}px]`;
-        }).replace(/\b(min-h-|h-)(screen|full)(?![a-zA-Z0-9_-])/g, '$1auto');
+    const clearHeights = () => {
+        const res = htmlInput.replace(/\b(min-h-|h-)(1[6-9]|[2-9][0-9]|100|screen|full|min|max|fit|\[.*?\])(?![a-zA-Z0-9_-])/g, '').replace(/\s{2,}/g, ' ');
         setHtmlInput(res);
     };
 
@@ -343,13 +335,24 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
         e.preventDefault();
         e.stopPropagation();
         const el = e.target;
-        if (el && typeof el.className === 'string') {
+        if (el && typeof el.className === 'string' && el.className.trim() !== '') {
             const oldClasses = el.className;
-            el.className = oldClasses.replace(/\b([mp][tbyxlr]?-|gap-|h-|min-h-)[a-zA-Z0-9.\[\]-]+\b/g, '').replace(/\s{2,}/g, ' ').trim();
-            if (oldClasses !== el.className) {
+            const newClasses = oldClasses.replace(/\b([mp][tbyxlr]?-|gap-|h-|min-h-)[a-zA-Z0-9.\[\]-]+\b/g, '').replace(/\s{2,}/g, ' ').trim();
+            if (oldClasses !== newClasses) {
                 const oldBg = el.style.backgroundColor;
                 el.style.backgroundColor = '#fecaca';
                 setTimeout(() => { el.style.backgroundColor = oldBg; }, 300);
+
+                // Update HTML string directly to persist changes through language swap
+                setHtmlInput(prev => {
+                    // Escape special characters for regex
+                    const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    // Treat any sequence of whitespaces in old class string as flexible
+                    const searchClass = escapeRegExp(oldClasses).replace(/\s+/g, '\\s+');
+                    // Match class attribute exactly matching the string
+                    const regex = new RegExp(`class=['"]\\s*${searchClass}\\s*['"]`, 'g');
+                    return prev.replace(regex, `class="${newClasses}"`);
+                });
             }
         }
     };
@@ -423,11 +426,11 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                                 </button>
                                 <div className="w-px h-4 bg-slate-300 mx-1 hidden sm:block"></div>
                                 <button
-                                    onClick={stepDownHeight}
+                                    onClick={clearHeights}
                                     className="text-[9px] bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-2 py-1 rounded shadow-sm font-bold flex items-center gap-1 transition-all"
-                                    title="Gọt bỏ các lệnh ép chiều cao (gọt nhiều lần để lùn dần)"
+                                    title="Gọt 1 phát dọn sạch bộ lệnh ép chiều cao cố định"
                                 >
-                                    <Minimize2 size={10} className="text-rose-500" /> Gọt Chiều Cao (-)
+                                    <Minimize2 size={10} className="text-rose-500" /> Gọt Chiều Cao (1-Shot)
                                 </button>
                                 <button
                                     onClick={stepDownSpacing}
