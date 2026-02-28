@@ -14,6 +14,7 @@ import {
   Scale,
   Combine,
   Scissors,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import UndoToast from './components/UndoToast';
@@ -22,6 +23,7 @@ import LegalDocumentView from './components/LegalDocumentView';
 import PdfSplitterView from './components/PdfSplitterView';
 import PdfMergerView from './components/PdfMergerView';
 import TemplateOverlayView from './components/TemplateOverlayView';
+import ExcelMappingView from './components/ExcelMappingView';
 import PageCard from './components/PageCard';
 import { getLangVal } from './utils/lang';
 import { uiTranslations } from './utils/translations';
@@ -240,6 +242,15 @@ const App = () => {
         >
           <Printer size={15} /> {activeTab === 'pdf-overlay' ? t.tabOverlay : '🖨️'}
         </button>
+        <button
+          onClick={() => setActiveTab('excelMapping')}
+          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-3 transition-all ${activeTab === 'excelMapping'
+            ? 'border-blue-600 text-blue-700 bg-blue-50/50'
+            : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+            }`}
+        >
+          <FileSpreadsheet size={15} /> {activeTab === 'excelMapping' ? t.tabExcelMapping : '📊'}
+        </button>
       </div>
 
       {/* ============================================================
@@ -253,6 +264,8 @@ const App = () => {
         <PdfMergerView displayLang={displayLang} />
       ) : activeTab === 'pdf-overlay' ? (
         <TemplateOverlayView displayLang={displayLang} />
+      ) : activeTab === 'excelMapping' ? (
+        <ExcelMappingView displayLang={displayLang} />
       ) : (
         <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900">
 
