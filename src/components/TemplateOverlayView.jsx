@@ -270,6 +270,31 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     }, [htmlInput, parsedData, currentLang]);
 
     // -----------------------------------------------------------------
+    // HTML RESCUE TOOLS
+    // -----------------------------------------------------------------
+    const changeFontSize = (direction) => {
+        const sizes = ['text-[9px]', 'text-[10px]', 'text-[11px]', 'text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-4xl'];
+        const res = htmlInput.replace(/\btext-(xs|sm|base|lg|xl|[2-4]xl|\[\d+px\])\b/g, (match) => {
+            let idx = sizes.indexOf(match);
+            if (idx === -1) {
+                // Parse arbitrary px values like text-[13px]
+                const pxMatch = match.match(/\[(\d+)px\]/);
+                if (pxMatch) {
+                    const px = parseInt(pxMatch[1], 10);
+                    if (direction > 0) return `text-[${px + 1}px]`;
+                    if (direction < 0) return `text-[${Math.max(6, px - 1)}px]`;
+                }
+                return match;
+            }
+            let newIdx = idx + direction;
+            if (newIdx < 0) newIdx = 0;
+            if (newIdx >= sizes.length) newIdx = sizes.length - 1;
+            return sizes[newIdx];
+        });
+        setHtmlInput(res);
+    };
+
+    // -----------------------------------------------------------------
     // PRINT ACTION
     // -----------------------------------------------------------------
     const handlePrint = () => {
@@ -324,6 +349,21 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                                 HTML Template (Bản vẽ)
                             </h3>
                             <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => changeFontSize(1)}
+                                    className="text-[11px] bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-2 py-1 rounded shadow-sm font-bold flex items-center transition-all"
+                                    title="Tăng kích thước toàn bộ chữ (+1 step)"
+                                >
+                                    A+
+                                </button>
+                                <button
+                                    onClick={() => changeFontSize(-1)}
+                                    className="text-[11px] bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-2 py-1 rounded shadow-sm font-bold flex items-center transition-all"
+                                    title="Giảm kích thước toàn bộ chữ (-1 step)"
+                                >
+                                    A-
+                                </button>
+                                <div className="w-px h-4 bg-slate-300 mx-1 hidden sm:block"></div>
                                 <button
                                     onClick={() => {
                                         const res = htmlInput.replace(/\b(min-h-|h-)(1[6-9]|[2-9][0-9]|100|screen|full|min|max|fit|\[.*?\])\b/g, '').replace(/\s{2,}/g, ' ');
