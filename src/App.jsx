@@ -1080,8 +1080,6 @@ const App = () => {
 
           {/* Print & Global Styles */}
           <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Lora:ital,wght@0,400;0,600;0,700;1,400&display=swap');
-
         @media print {
           @page { size: A4 portrait; margin: 0; }
           body { background: white !important; margin: 0; padding: 0; }

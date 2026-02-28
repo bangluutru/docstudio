@@ -35,6 +35,18 @@
         "Drag and Drop Content Management: Sắp xếp các thành phần tài liệu.",
         "Dynamic HTML Builder (Tab 5): Hệ thống tạo form in A4 linh hoạt qua chèn code HTML từ AI, tự động map biến `{{...}}` với JSON đa ngôn ngữ."
     ],
+    "upcoming_features": [
+        {
+            "name": "Excel Order Form Mapping",
+            "description": "Tự động khớp thông tin từ file đặt hàng khách hàng (Excel) vào file đặt hàng nhà cung cấp (Excel) khi 2 mẫu khác nhau.",
+            "solutions_researched": [
+                "1. Rule-Based Template Mapping: Cấu hình mapping thủ công từng khách hàng, lưu profile. Chính xác 100%, nhanh, không tốn API.",
+                "2. AI Semantic Mapping: Gửi header + sample rows cho Gemini để tự đoán mapping. Linh hoạt nhưng tốn API và có rủi ro nhầm.",
+                "3. Hybrid (KHUYẾN NGHỊ): AI đề xuất mapping lần đầu → user duyệt/sửa → lưu thành Rules cứng cho lần sau. Tối ưu cả tốc độ lẫn độ chính xác."
+            ],
+            "status": "researched_not_implemented"
+        }
+    ],
     "knowledge_items": {
         "patterns": [
             "SVG-in-table-cell rendering",
