@@ -287,7 +287,10 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     };
 
     const clearHeights = () => {
-        const res = htmlInput.replace(/\b(min-h-|h-)(1[6-9]|[2-9][0-9]|100|screen|full|min|max|fit|\[.*?\])(?![a-zA-Z0-9_-])/g, '').replace(/\s{2,}/g, ' ');
+        // Remove ALL h-* and min-h-* classes EXCEPT h-auto (which is harmless)
+        const res = htmlInput
+            .replace(/\b(min-h-|h-)(?!auto)([a-zA-Z0-9.[\]%-]+)(?![a-zA-Z0-9_-])/g, '')
+            .replace(/\s{2,}/g, ' ');
         setHtmlInput(res);
     };
 
@@ -518,7 +521,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                         <div
                             className={`bg-white shadow-2xl transition-all print-target outline-none relative 
                             ${['text-[9px]', 'text-[10px]', 'text-[11px]', 'text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-4xl', 'text-5xl', 'text-6xl'][bodyFontSizeIndex]}
-                            [&>div]:max-w-none [&>div]:w-full [&>div]:h-full [&>div]:m-0 [&>div]:border-none [&>div]:shadow-none
+                            [&>div]:max-w-none [&>div]:w-full [&>div]:m-0 [&>div]:border-none [&>div]:shadow-none
                             ${isEditing ? 'ring-4 ring-amber-400 border-amber-500' : ''}`}
                             style={{
                                 width: '210mm',
