@@ -265,7 +265,7 @@ const App = () => {
       ) : activeTab === 'pdf-overlay' ? (
         <TemplateOverlayView displayLang={displayLang} />
       ) : activeTab === 'excelMapping' ? (
-        <ExcelMappingView displayLang={displayLang} />
+        <ExcelMappingView t={t} displayLang={displayLang} />
       ) : (
         <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900">
 

@@ -5,7 +5,10 @@ import {
 } from 'lucide-react';
 import { readExcelFile, autoMapFields, exportMappedExcel } from '../utils/excel';
 
-export default function ExcelMappingView({ t, displayLang }) {
+export default function ExcelMappingView({ t: tProp, displayLang }) {
+    // Safety fallback: ensure t is never undefined
+    const t = tProp || {};
+
     // --- STATE ---
     // Source (Customer)
     const [sourceFile, setSourceFile] = useState(null);
