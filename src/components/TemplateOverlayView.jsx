@@ -273,6 +273,32 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     // -----------------------------------------------------------------
     // HTML RESCUE TOOLS
     // -----------------------------------------------------------------
+    const stepDownSpacing = () => {
+        const scale = ['0', '0.5', '1', '1.5', '2', '2.5', '3', '3.5', '4', '5', '6', '7', '8', '9', '10', '11', '12', '14', '16', '20', '24', '28', '32', '36', '40', '44', '48', '52', '56', '60', '64', '72', '80', '96'];
+        const res = htmlInput.replace(/\b([mp][tbyxlr]?-|gap-)(\d+|1\.5|2\.5|3\.5)\b/g, (match, prefix, val) => {
+            const idx = scale.indexOf(val);
+            if (idx > 0) return prefix + scale[Math.max(0, idx - 2)];
+            return match;
+        }).replace(/\b([mp][tbyxlr]?-|gap-)\[(\d+)px\]\b/g, (match, prefix, val) => {
+            const px = parseInt(val, 10);
+            return `${prefix}[${Math.max(0, px - 8)}px]`;
+        });
+        setHtmlInput(res);
+    };
+
+    const stepDownHeight = () => {
+        const scale = ['0', '0.5', '1', '1.5', '2', '2.5', '3', '3.5', '4', '5', '6', '7', '8', '9', '10', '11', '12', '14', '16', '20', '24', '28', '32', '36', '40', '44', '48', '52', '56', '60', '64', '72', '80', '96'];
+        const res = htmlInput.replace(/\b(min-h-|h-)(\d+|1\.5|2\.5|3\.5)\b/g, (match, prefix, val) => {
+            const idx = scale.indexOf(val);
+            if (idx > 1) return prefix + scale[Math.max(1, idx - 3)];
+            return match;
+        }).replace(/\b(min-h-|h-)\[(\d+)px\]\b/g, (match, prefix, val) => {
+            const px = parseInt(val, 10);
+            return `${prefix}[${Math.max(4, px - 16)}px]`;
+        }).replace(/\b(min-h-|h-)(screen|full)\b/g, '$1auto');
+        setHtmlInput(res);
+    };
+
     const changeFontSize = (direction) => {
         const FONT_SIZES = ['text-[9px]', 'text-[10px]', 'text-[11px]', 'text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-4xl', 'text-5xl', 'text-6xl'];
 
@@ -306,12 +332,27 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     };
 
     // -----------------------------------------------------------------
-    // PRINT ACTION
+    // PRINT ACTION & MANUAL EDIT
     // -----------------------------------------------------------------
     const handlePrint = () => {
         window.print();
     };
 
+    const handlePreviewClick = (e) => {
+        if (!isEditing || !e.altKey) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const el = e.target;
+        if (el && typeof el.className === 'string') {
+            const oldClasses = el.className;
+            el.className = oldClasses.replace(/\b([mp][tbyxlr]?-|gap-|h-|min-h-)[a-zA-Z0-9.\[\]-]+\b/g, '').replace(/\s{2,}/g, ' ').trim();
+            if (oldClasses !== el.className) {
+                const oldBg = el.style.backgroundColor;
+                el.style.backgroundColor = '#fecaca';
+                setTimeout(() => { el.style.backgroundColor = oldBg; }, 300);
+            }
+        }
+    };
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50 font-sans text-slate-800">
@@ -330,6 +371,12 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                     </div>
 
                     <div className="flex items-center gap-3">
+                        {isEditing && (
+                            <div className="hidden lg:flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-xl text-[11px] font-bold text-amber-600 shadow-inner">
+                                <Sparkles size={14} className="text-amber-500" />
+                                <span>Giữ <kbd className="bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200 mx-0.5 shadow-sm text-slate-800">ALT</kbd> + Cick vào Vùng Trắng để gọt tự động</span>
+                            </div>
+                        )}
                         <button
                             onClick={() => setIsEditing(!isEditing)}
                             className={`flex items-center gap-2 px-6 py-2.5 font-bold rounded-xl shadow-lg transition-all ${isEditing ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-white'}`}
@@ -376,24 +423,18 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                                 </button>
                                 <div className="w-px h-4 bg-slate-300 mx-1 hidden sm:block"></div>
                                 <button
-                                    onClick={() => {
-                                        const res = htmlInput.replace(/\b(min-h-|h-)(1[6-9]|[2-9][0-9]|100|screen|full|min|max|fit|\[.*?\])\b/g, '').replace(/\s{2,}/g, ' ');
-                                        setHtmlInput(res);
-                                    }}
+                                    onClick={stepDownHeight}
                                     className="text-[9px] bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-2 py-1 rounded shadow-sm font-bold flex items-center gap-1 transition-all"
-                                    title="Gọt bỏ các lệnh ép chiều cao cố định (như h-64, min-h-...) giúp bảng co rút tự nhiên lại"
+                                    title="Gọt bỏ các lệnh ép chiều cao (gọt nhiều lần để lùn dần)"
                                 >
-                                    <Minimize2 size={10} className="text-rose-500" /> Gọt Chiều Cao
+                                    <Minimize2 size={10} className="text-rose-500" /> Gọt Chiều Cao (-)
                                 </button>
                                 <button
-                                    onClick={() => {
-                                        const res = htmlInput.replace(/\b([mp][tbyx]?-|gap-)(1[0-9]|[2-9][0-9]|\[.*?\])\b/g, '$1' + '2').replace(/\s{2,}/g, ' ');
-                                        setHtmlInput(res);
-                                    }}
+                                    onClick={stepDownSpacing}
                                     className="text-[9px] bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-2 py-1 rounded shadow-sm font-bold flex items-center gap-1 transition-all"
-                                    title="Thu nhỏ lề, khoảng cách (margin, padding) lớn xuống mức thấp nhất để tiết kiệm diện tích"
+                                    title="Thu nhỏ lề, khoảng cách xuông từ từ (bấm nhiều lần)"
                                 >
-                                    <Shrink size={10} className="text-emerald-500" /> Ép Khoảng Trắng
+                                    <Shrink size={10} className="text-emerald-500" /> Ép Khoảng Trắng (-)
                                 </button>
                             </div>
                         </div>
@@ -483,6 +524,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                             }}
                             contentEditable={isEditing}
                             suppressContentEditableWarning={true}
+                            onClick={handlePreviewClick}
                         >
                             {/* Inner Scaling Wrapper wrapper */}
                             <div
