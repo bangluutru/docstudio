@@ -178,6 +178,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [contentScale, setContentScale] = useState(1);
     const [bodyFontSizeIndex, setBodyFontSizeIndex] = useState(4); // default 4 = text-sm
+    const [isHeightTrimmed, setIsHeightTrimmed] = useState(false);
 
     // Sync with global lang if it changes, but allow local override
     useEffect(() => {
@@ -292,6 +293,8 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
             .replace(/\b(min-h-|h-)(?!auto)([a-zA-Z0-9.[\]%-]+)(?![a-zA-Z0-9_-])/g, '')
             .replace(/\s{2,}/g, ' ');
         setHtmlInput(res);
+        // Also disable the external 297mm wrapper locks
+        setIsHeightTrimmed(true);
     };
 
     const changeFontSize = (direction) => {
@@ -525,8 +528,8 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                             ${isEditing ? 'ring-4 ring-amber-400 border-amber-500' : ''}`}
                             style={{
                                 width: '210mm',
-                                minHeight: '297mm', // strict A4 ratio for preview
-                                padding: '12mm', // Internal safe margin
+                                minHeight: isHeightTrimmed ? 'auto' : '297mm',
+                                padding: '12mm',
                             }}
                             contentEditable={isEditing}
                             suppressContentEditableWarning={true}
@@ -538,7 +541,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                                     transform: `scale(${contentScale})`,
                                     transformOrigin: 'top left',
                                     width: `${100 / contentScale}%`,
-                                    minHeight: `${100 / contentScale}%`
+                                    ...(isHeightTrimmed ? {} : { minHeight: `${100 / contentScale}%` })
                                 }}
                                 dangerouslySetInnerHTML={{ __html: finalHtml }}
                             />
@@ -578,8 +581,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
             
             /* Strict Dimensions: 1 A4 Page */
             width: 210mm !important;
-            height: 297mm !important;
-            min-height: 297mm !important;
+            ${isHeightTrimmed ? 'height: auto !important; min-height: auto !important;' : 'height: 297mm !important; min-height: 297mm !important;'}
             
             /* Internal margin is handled by our 12mm padding inside component */
             margin: 0 !important;
