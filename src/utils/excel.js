@@ -16,20 +16,17 @@ const FOOTER_KEYWORDS = [
 // 1. Reading Excel Files
 // =====================================================================
 
-// Detect if a row is part of the footer area (not a product data row)
 const isFooterRow = (row, headerCount) => {
     if (!row || !Array.isArray(row)) return false;
     const rowText = row.map(c => String(c).trim().toLowerCase()).join(' ');
     for (const kw of FOOTER_KEYWORDS) {
         if (rowText.includes(kw)) return true;
     }
-    // Too few filled cells compared to header count = probably not a product row
     const filledCells = row.filter(c => String(c).trim() !== '').length;
     if (filledCells < Math.max(2, Math.floor(headerCount * 0.3))) return true;
     return false;
 };
 
-// Scoring algorithm to find the table header row
 const findHeaderRow = (jsonData) => {
     const headerKeywords = [
         'no', 'no.', 'stt', 'item', 'item code', 'product', 'pkg', 'unit',
@@ -45,7 +42,6 @@ const findHeaderRow = (jsonData) => {
     for (let i = 0; i < Math.min(jsonData.length, 50); i++) {
         const row = jsonData[i];
         if (!row || !Array.isArray(row)) continue;
-
         let score = 0;
         row.forEach(cell => {
             const s = String(cell).trim().toLowerCase();
@@ -55,26 +51,37 @@ const findHeaderRow = (jsonData) => {
         });
         const filledCount = row.filter(c => String(c).trim() !== '').length;
         if (filledCount >= 5) score += 2;
-
         if (score > maxScore && score > 0) {
             maxScore = score;
             bestIndex = i;
         }
     }
 
-    // Fallback: row with most columns
     if (maxScore <= 0) {
         let maxCols = 0;
         for (let i = 0; i < Math.min(jsonData.length, 30); i++) {
             const row = jsonData[i] || [];
             const numCols = row.filter(c => String(c).trim() !== '').length;
-            if (numCols > maxCols) {
-                maxCols = numCols;
-                bestIndex = i;
-            }
+            if (numCols > maxCols) { maxCols = numCols; bestIndex = i; }
         }
     }
     return bestIndex;
+};
+
+// Find footer start row in ExcelJS worksheet (1-indexed)
+const findFooterStartInWorksheet = (ejsWs, headerRowNum) => {
+    for (let r = headerRowNum + 1; r <= ejsWs.rowCount; r++) {
+        const row = ejsWs.getRow(r);
+        const values = [];
+        row.eachCell({ includeEmpty: false }, (cell) => {
+            values.push(String(cell.value || '').trim().toLowerCase());
+        });
+        const rowText = values.join(' ');
+        if (FOOTER_KEYWORDS.some(kw => rowText.includes(kw))) {
+            return r;
+        }
+    }
+    return ejsWs.rowCount + 1;
 };
 
 export const readExcelFile = async (file, isSource = true) => {
@@ -116,76 +123,33 @@ export const readExcelFile = async (file, isSource = true) => {
                     }
                     resolve({ headers, sampleRows: dataRows, allRows: dataRows });
                 } else {
-                    // ===== TARGET TEMPLATE: Extract 3 zones using ExcelJS =====
+                    // ===== TARGET TEMPLATE: Extract zone info for UI display =====
                     const ejsWb = new ExcelJS.Workbook();
                     await ejsWb.xlsx.load(data);
                     const ejsWs = ejsWb.worksheets[0];
+                    const headerRowNum = headerRowIndex + 1; // ExcelJS is 1-indexed
+                    const colCount = ejsWs.columnCount || 20;
 
-                    // ExcelJS is 1-indexed
-                    const headerRowNum = headerRowIndex + 1;
+                    // Find footer
+                    const footerStartRow = findFooterStartInWorksheet(ejsWs, headerRowNum);
+                    const existingDataSlots = footerStartRow - headerRowNum - 1;
 
-                    // --- Zone 1: Header (rows 1 to headerRow - 1) ---
+                    // --- Zone 1: Header (for UI display/editing) ---
                     const headerZone = [];
                     for (let r = 1; r < headerRowNum; r++) {
                         const row = ejsWs.getRow(r);
                         const cells = [];
-                        const colCount = ejsWs.columnCount || 20;
                         for (let c = 1; c <= colCount; c++) {
                             const cell = row.getCell(c);
                             cells.push({
                                 col: c,
-                                value: cell.value !== null && cell.value !== undefined ? String(cell.value) : '',
-                                style: JSON.parse(JSON.stringify(cell.style || {}))
+                                value: cell.value !== null && cell.value !== undefined ? String(cell.value) : ''
                             });
                         }
                         headerZone.push({ rowNum: r, cells });
                     }
 
-                    // --- Find footer start: first footer-like row after header ---
-                    let footerStartRow = ejsWs.rowCount + 1;
-                    // Find the first empty or footer row after the header
-                    for (let r = headerRowNum + 1; r <= ejsWs.rowCount; r++) {
-                        const row = ejsWs.getRow(r);
-                        const values = [];
-                        row.eachCell({ includeEmpty: false }, (cell) => {
-                            values.push(String(cell.value || '').trim().toLowerCase());
-                        });
-                        const rowText = values.join(' ');
-                        const isFooter = FOOTER_KEYWORDS.some(kw => rowText.includes(kw));
-                        if (isFooter) {
-                            footerStartRow = r;
-                            break;
-                        }
-                    }
-
-                    // Count existing data slots
-                    const existingDataSlots = footerStartRow - headerRowNum - 1;
-
-                    // --- Capture template data row style (from first data row) ---
-                    const templateDataRowStyle = [];
-                    const firstDataRow = ejsWs.getRow(headerRowNum + 1);
-                    const colCount = ejsWs.columnCount || 20;
-                    for (let c = 1; c <= colCount; c++) {
-                        const cell = firstDataRow.getCell(c);
-                        templateDataRowStyle.push({
-                            col: c,
-                            style: JSON.parse(JSON.stringify(cell.style || {}))
-                        });
-                    }
-
-                    // --- Capture table header row style ---
-                    const tableHeaderRowStyle = [];
-                    const hdrRow = ejsWs.getRow(headerRowNum);
-                    for (let c = 1; c <= colCount; c++) {
-                        const cell = hdrRow.getCell(c);
-                        tableHeaderRowStyle.push({
-                            col: c,
-                            value: cell.value !== null && cell.value !== undefined ? String(cell.value) : '',
-                            style: JSON.parse(JSON.stringify(cell.style || {}))
-                        });
-                    }
-
-                    // --- Zone 3: Footer (rows from footerStartRow to end) ---
+                    // --- Zone 3: Footer (for UI display/editing) ---
                     const footerZone = [];
                     for (let r = footerStartRow; r <= ejsWs.rowCount; r++) {
                         const row = ejsWs.getRow(r);
@@ -194,39 +158,19 @@ export const readExcelFile = async (file, isSource = true) => {
                             const cell = row.getCell(c);
                             cells.push({
                                 col: c,
-                                value: cell.value !== null && cell.value !== undefined ? String(cell.value) : '',
-                                style: JSON.parse(JSON.stringify(cell.style || {}))
+                                value: cell.value !== null && cell.value !== undefined ? String(cell.value) : ''
                             });
                         }
                         footerZone.push({ rowNum: r, cells });
-                    }
-
-                    // --- Capture column widths ---
-                    const columnWidths = [];
-                    for (let c = 1; c <= colCount; c++) {
-                        const col = ejsWs.getColumn(c);
-                        columnWidths.push({ col: c, width: col.width || 12 });
-                    }
-
-                    // --- Capture merges ---
-                    const merges = [];
-                    if (ejsWs._merges) {
-                        Object.values(ejsWs._merges).forEach(m => {
-                            merges.push(m.model || m);
-                        });
                     }
 
                     resolve({
                         headers,
                         headerRowIndex,
                         rawBuffer: data,
-                        // 3-Zone data
                         headerZone,
                         footerZone,
-                        tableHeaderRowStyle,
-                        templateDataRowStyle,
-                        columnWidths,
-                        merges,
+                        footerStartRow,
                         existingDataSlots,
                         colCount
                     });
@@ -277,7 +221,6 @@ export const autoMapFields = (sourceHeaders, targetHeaders) => {
     const mappedTargets = new Set();
     const mappedSources = new Set();
 
-    // 1. Exact Match
     sourceHeaders.forEach(s => {
         const match = targetHeaders.find(t =>
             t.toLowerCase().trim() === s.toLowerCase().trim() && !mappedTargets.has(t)
@@ -289,7 +232,6 @@ export const autoMapFields = (sourceHeaders, targetHeaders) => {
         }
     });
 
-    // 2. Heuristic Match
     sourceHeaders.forEach(s => {
         if (mappedSources.has(s)) return;
         const sCat = categorize(s);
@@ -309,74 +251,75 @@ export const autoMapFields = (sourceHeaders, targetHeaders) => {
 };
 
 // =====================================================================
-// 3. Export: Build NEW workbook from 3 zones
+// 3. Export: MUTATE original template (Option A)
+//    - Only touch the data zone between header and footer
+//    - Header & Footer zones (with merges, images) stay untouched
 // =====================================================================
 export const exportMappedExcel = async ({
     sourceAllRows,
     mappingRules,
-    headerZone,
-    footerZone,
-    tableHeaderRowStyle,
-    templateDataRowStyle,
-    columnWidths,
-    colCount,
+    targetBuffer,
+    headerRowIndex,
+    headerZone,      // for applying user edits
+    footerZone,      // for applying user edits
+    footerStartRow,  // original footer start (1-indexed)
+    existingDataSlots,
     fileName = 'Mapped_Order.xlsx'
 }) => {
+    // 1. Load the ORIGINAL template (preserves merges, images, everything)
     const workbook = new ExcelJS.Workbook();
-    const ws = workbook.addWorksheet('Purchase Order');
+    await workbook.xlsx.load(targetBuffer);
+    const ws = workbook.worksheets[0];
 
-    // Set column widths
-    columnWidths.forEach(cw => {
-        ws.getColumn(cw.col).width = cw.width;
-    });
+    const headerRowNum = headerRowIndex + 1; // 1-indexed
+    const dataStartRow = headerRowNum + 1;
+    const neededRows = sourceAllRows.length;
+    const diff = neededRows - existingDataSlots;
 
-    let currentRow = 1;
-
-    // ===== ZONE 1: Write Header Area =====
-    headerZone.forEach(zoneRow => {
-        const row = ws.getRow(currentRow);
-        zoneRow.cells.forEach(cellData => {
-            const cell = row.getCell(cellData.col);
-            // Write value (could be edited by user)
-            if (cellData.value) {
-                // Try to preserve number values
-                const num = Number(cellData.value);
-                cell.value = (!isNaN(num) && cellData.value.trim() !== '') ? num : cellData.value;
-            }
-            // Apply original style
-            try { cell.style = cellData.style; } catch (e) { }
-        });
-        row.commit();
-        currentRow++;
-    });
-
-    // ===== TABLE HEADER ROW =====
-    const hdrRow = ws.getRow(currentRow);
-    tableHeaderRowStyle.forEach(cellData => {
-        const cell = hdrRow.getCell(cellData.col);
-        if (cellData.value) cell.value = cellData.value;
-        try { cell.style = cellData.style; } catch (e) { }
-    });
-    hdrRow.commit();
-    currentRow++;
-
-    // ===== ZONE 2: Write Mapped Product Data =====
-    // Build column map from table header
+    // 2. Build column map from the header row
     const colMap = {};
-    tableHeaderRowStyle.forEach(c => {
-        if (c.value) colMap[c.value] = c.col;
+    const hdrRow = ws.getRow(headerRowNum);
+    hdrRow.eachCell((cell, colNumber) => {
+        const val = String(cell.value || '').trim();
+        if (val) colMap[val] = colNumber;
     });
 
+    // 3. Capture the style of the first data row BEFORE any splicing
+    const baseDataRowStyles = {};
+    const baseRow = ws.getRow(dataStartRow);
+    const maxCol = ws.columnCount || 20;
+    for (let c = 1; c <= maxCol; c++) {
+        const cell = baseRow.getCell(c);
+        try {
+            baseDataRowStyles[c] = JSON.parse(JSON.stringify(cell.style || {}));
+        } catch (e) {
+            baseDataRowStyles[c] = {};
+        }
+    }
+
+    // 4. Adjust the data zone size
+    if (diff > 0) {
+        // Need MORE rows → insert empty rows at the end of data zone (before footer)
+        ws.spliceRows(dataStartRow + existingDataSlots, 0, ...new Array(diff).fill([]));
+    } else if (diff < 0) {
+        // Need FEWER rows → delete excess rows from end of data zone
+        ws.spliceRows(dataStartRow + neededRows, Math.abs(diff));
+    }
+    // If diff === 0, no change needed
+
+    // 5. Clear all data cells and apply base style
+    for (let i = 0; i < neededRows; i++) {
+        const row = ws.getRow(dataStartRow + i);
+        for (let c = 1; c <= maxCol; c++) {
+            const cell = row.getCell(c);
+            cell.value = null; // clear
+            try { cell.style = baseDataRowStyles[c]; } catch (e) { }
+        }
+    }
+
+    // 6. Write mapped data
     sourceAllRows.forEach((sourceRow, index) => {
-        const row = ws.getRow(currentRow);
-
-        // Apply template data row style first
-        templateDataRowStyle.forEach(cellData => {
-            const cell = row.getCell(cellData.col);
-            try { cell.style = cellData.style; } catch (e) { }
-        });
-
-        // Write mapped values
+        const row = ws.getRow(dataStartRow + index);
         mappingRules.forEach(rule => {
             if (rule.sourceCol && rule.targetCol && colMap[rule.targetCol]) {
                 const colNum = colMap[rule.targetCol];
@@ -386,27 +329,57 @@ export const exportMappedExcel = async ({
                 }
             }
         });
-
         row.commit();
-        currentRow++;
     });
 
-    // ===== ZONE 3: Write Footer Area =====
-    footerZone.forEach(zoneRow => {
-        const row = ws.getRow(currentRow);
-        zoneRow.cells.forEach(cellData => {
-            const cell = row.getCell(cellData.col);
-            if (cellData.value) {
-                const num = Number(cellData.value);
-                cell.value = (!isNaN(num) && cellData.value.trim() !== '') ? num : cellData.value;
-            }
-            try { cell.style = cellData.style; } catch (e) { }
+    // 7. Apply user edits to Zone 1 (Header) - only changed values
+    if (headerZone && headerZone.length > 0) {
+        headerZone.forEach(zoneRow => {
+            const row = ws.getRow(zoneRow.rowNum);
+            zoneRow.cells.forEach(cellData => {
+                const existingCell = row.getCell(cellData.col);
+                const existingVal = existingCell.value !== null && existingCell.value !== undefined
+                    ? String(existingCell.value) : '';
+                // Only update if user changed the value
+                if (cellData.value !== existingVal && cellData.value.trim() !== '') {
+                    existingCell.value = cellData.value;
+                }
+            });
         });
-        row.commit();
-        currentRow++;
+    }
+
+    // 8. Apply user edits to Zone 3 (Footer) - calculate new row positions
+    if (footerZone && footerZone.length > 0) {
+        const footerOffset = diff; // rows shifted by splice
+        footerZone.forEach(zoneRow => {
+            const newRowNum = zoneRow.rowNum + footerOffset;
+            const row = ws.getRow(newRowNum);
+            zoneRow.cells.forEach(cellData => {
+                const existingCell = row.getCell(cellData.col);
+                const existingVal = existingCell.value !== null && existingCell.value !== undefined
+                    ? String(existingCell.value) : '';
+                if (cellData.value !== existingVal && cellData.value.trim() !== '') {
+                    existingCell.value = cellData.value;
+                }
+            });
+        });
+    }
+
+    // 9. Fix shared formula corruption from spliceRows
+    ws.eachRow((row) => {
+        row.eachCell((cell) => {
+            const v = cell.value;
+            if (v && typeof v === 'object' && v.sharedFormula !== undefined) {
+                if (v.formula) {
+                    cell.value = { formula: v.formula, result: v.result };
+                } else {
+                    cell.value = v.result !== undefined ? v.result : '';
+                }
+            }
+        });
     });
 
-    // ===== Download =====
+    // 10. Generate and download
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = window.URL.createObjectURL(blob);

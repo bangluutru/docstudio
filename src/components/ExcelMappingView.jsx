@@ -18,11 +18,12 @@ export default function ExcelMappingView({ t: tProp, displayLang }) {
     // Target (Supplier) - 3 Zones
     const [targetFile, setTargetFile] = useState(null);
     const [targetHeaders, setTargetHeaders] = useState([]);
+    const [targetBuffer, setTargetBuffer] = useState(null);
+    const [headerRowIndex, setHeaderRowIndex] = useState(null);
     const [headerZone, setHeaderZone] = useState([]);       // Zone 1
     const [footerZone, setFooterZone] = useState([]);       // Zone 3
-    const [tableHeaderRowStyle, setTableHeaderRowStyle] = useState([]);
-    const [templateDataRowStyle, setTemplateDataRowStyle] = useState([]);
-    const [columnWidths, setColumnWidths] = useState([]);
+    const [footerStartRow, setFooterStartRow] = useState(null);
+    const [existingDataSlots, setExistingDataSlots] = useState(0);
     const [colCount, setColCount] = useState(0);
 
     // Mapping & Profiles
@@ -60,12 +61,13 @@ export default function ExcelMappingView({ t: tProp, displayLang }) {
             } else {
                 setTargetFile(file.name);
                 setTargetHeaders(result.headers);
+                setTargetBuffer(result.rawBuffer);
+                setHeaderRowIndex(result.headerRowIndex);
                 // Store 3-Zone data
                 setHeaderZone(result.headerZone || []);
                 setFooterZone(result.footerZone || []);
-                setTableHeaderRowStyle(result.tableHeaderRowStyle || []);
-                setTemplateDataRowStyle(result.templateDataRowStyle || []);
-                setColumnWidths(result.columnWidths || []);
+                setFooterStartRow(result.footerStartRow);
+                setExistingDataSlots(result.existingDataSlots || 0);
                 setColCount(result.colCount || 0);
             }
 
@@ -108,12 +110,12 @@ export default function ExcelMappingView({ t: tProp, displayLang }) {
             await exportMappedExcel({
                 sourceAllRows: sourceAllData,
                 mappingRules,
+                targetBuffer,
+                headerRowIndex,
                 headerZone,
                 footerZone,
-                tableHeaderRowStyle,
-                templateDataRowStyle,
-                columnWidths,
-                colCount,
+                footerStartRow,
+                existingDataSlots,
                 fileName: `Mapped_${sourceFile || 'Order'}`
             });
         } catch (err) {
