@@ -24,16 +24,51 @@ export const readExcelFile = async (file, isSource = true) => {
                     throw new Error("File is empty or invalid format.");
                 }
 
-                // Find the actual header row (skip empty top rows if any)
+                // Find the actual header row (skip metadata/company info at the top)
                 let headerRowIndex = 0;
-                for (let i = 0; i < Math.min(jsonData.length, 10); i++) {
-                    if (jsonData[i].some(cell => String(cell).trim() !== '')) {
+                let maxScore = -1;
+                const headerKeywords = [
+                    'no', 'no.', 'stt', 'item', 'item code', 'product', 'pkg', 'unit',
+                    'qty', 'quantity', 'price', 'unit price', 'total', 'subtotal',
+                    'tên', 'mã', 'số lượng', 'đơn giá', 'thành tiền', 'hàng hóa',
+                    '数量', '単価', '金額', '品名', '品番', '備考'
+                ];
+
+                for (let i = 0; i < Math.min(jsonData.length, 50); i++) {
+                    const row = jsonData[i];
+                    if (!row || !Array.isArray(row)) continue;
+
+                    let score = 0;
+                    row.forEach(cell => {
+                        const s = String(cell).trim().toLowerCase();
+                        if (s.length > 0 && headerKeywords.some(kw => s === kw || s.includes(kw))) {
+                            score += 2; // high confidence for known keywords
+                        } else if (s.length > 0) {
+                            score += 1; // reward rows with many non-empty columns (tables are dense)
+                        }
+                    });
+
+                    // We want the row with the most column headers
+                    if (score > maxScore && score > 0) {
+                        maxScore = score;
                         headerRowIndex = i;
-                        break;
                     }
                 }
 
-                const rawHeaders = jsonData[headerRowIndex].map(h => String(h).trim());
+                // If somehow no score was found, fallback to the row with the most columns
+                if (maxScore === -1) {
+                    let maxCols = 0;
+                    for (let i = 0; i < Math.min(jsonData.length, 30); i++) {
+                        const row = jsonData[i] || [];
+                        const numCols = row.filter(cell => String(cell).trim() !== '').length;
+                        if (numCols > maxCols) {
+                            maxCols = numCols;
+                            headerRowIndex = i;
+                        }
+                    }
+                }
+
+                const rawHeaders = (jsonData[headerRowIndex] || []).map(h => String(h).trim());
                 const headers = rawHeaders.filter(h => h !== ''); // filter out empty headers
 
                 if (isSource) {
@@ -42,20 +77,28 @@ export const readExcelFile = async (file, isSource = true) => {
                     for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
                         const row = jsonData[i];
                         // Skip completely empty rows
-                        if (row.some(cell => String(cell).trim() !== '')) {
-                            // Convert array row to object based on headers
-                            const rowObj = {};
-                            headers.forEach((header, colIdx) => {
-                                // Find original column index of this header
-                                const origIdx = rawHeaders.indexOf(header);
-                                if (origIdx !== -1) {
-                                    rowObj[header] = row[origIdx];
-                                }
-                            });
-                            dataRows.push(rowObj);
+                        if (row && Array.isArray(row)) {
+                            // Check how many non-empty cells this row has
+                            const filledCells = row.filter(cell => String(cell).trim() !== '').length;
+
+                            // A real table row usually has at least 3-4 columns of data. 
+                            // Footer rows (like "Total: $100") often only have 1-2. Let's require at least 2 filled cells.
+                            if (filledCells >= 2) {
+                                // Convert array row to object based on headers
+                                const rowObj = {};
+                                headers.forEach((header, colIdx) => {
+                                    // Find original column index of this header
+                                    const origIdx = rawHeaders.indexOf(header);
+                                    if (origIdx !== -1) {
+                                        rowObj[header] = row[origIdx] !== undefined ? row[origIdx] : '';
+                                    }
+                                });
+                                dataRows.push(rowObj);
+                            }
                         }
                     }
-                    resolve({ headers, sampleRows: dataRows.slice(0, 5), allRows: dataRows });
+                    // Return all parsed data rows for preview (so users can see all items, not just first 5)
+                    resolve({ headers, sampleRows: dataRows, allRows: dataRows });
                 } else {
                     // For target (Supplier Template), we only need headers
                     resolve({ headers });
