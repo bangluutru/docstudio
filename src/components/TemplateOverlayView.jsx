@@ -6,7 +6,10 @@ import {
     Languages,
     Maximize2,
     RefreshCw,
-    Download
+    Download,
+    Sparkles,
+    Copy,
+    Check
 } from 'lucide-react';
 
 // =====================================================================
@@ -92,6 +95,76 @@ const interpolateHTML = (htmlTemplate, parsedData, currentLang) => {
         // Return a red placeholder if data is missing, so it's visible to user
         return `<span class="bg-red-100 text-red-600 border border-red-300 px-1 rounded text-xs font-mono" title="Thiếu dữ liệu (Missing Key): ${keyName}">[${keyName}]</span>`;
     });
+};
+
+const htmlPromptText = `Chào bạn, tôi muốn nhờ bạn đọc hình ảnh phiếu kết quả đính kèm và tái tạo giúp tôi toàn bộ hình thức đồ họa của tờ giấy thành một đoạn mã HTML kết hợp Tailwind CSS.
+
+Yêu cầu dành cho Mã HTML:
+1. Vẽ lại khung xương (tables, borders, layouts) y hệt ảnh gốc bằng Tailwind CSS. Hãy để độ rộng các cột tự động co giãn mềm dẻo theo lượng text bên trong (flexible width), KHÔNG DÙNG phần trăm cứng.
+2. Tuyệt đối không gõ cứng (hardcode) chữ của bất kỳ ngôn ngữ nào vào HTML. Mọi văn bản xuất hiện trên tờ giấy, từ "Chữ tĩnh" (tiêu đề cột, tên công ty in sẵn) đến "Chữ động" (thông số do con người điền) ĐỀU PHẢI được thay thế bằng một Biến Ngoặc Nhọn (Ví dụ: {{label_so_lo}} cho tiêu đề, {{so_lo}} cho chữ điền vào).
+3. Chống Tràn Dòng & Xếp Chữ Dọc: Bản dịch tiếng Việt/Anh rất dài. Nếu các chữ dài làm phình to chiều cao ô hoặc phá vỡ bảng, BẮT BUỘC:
+   - Ép bẻ từ bằng class "break-words" hoặc "whitespace-pre-wrap".
+   - Xếp chữ theo chiều dọc "flex-col" nếu ô có tiêu đề + nội dung nằm ngang quá chật.
+   - Dùng class thu nhỏ chữ như "text-[10px]" hoặc "text-xs", "leading-tight".
+4. Chỉ cần trả về nội dung bên trong cặp thẻ <div> bọc ngoài cùng.`;
+
+const jsonPromptText = `Dựa trên bức ảnh phiếu kết quả này, và dựa vào danh sách các Biến Ngoặc Nhọn {{...}} mà bạn đã tạo cho tôi trong mẫu HTML, hãy giúp tôi trích xuất toàn bộ dữ liệu chữ số đang được điền trên giấy.
+
+Yêu cầu đối với JSON:
+1. Xin hãy xuất ra một chuỗi JSON phẳng. (KHÔNG bọc trong mảng Array []).
+2. Key của JSON phải trùng khớp chính xác 100% với tên các Biến Ngoặc Nhọn ở bản thiết kế HTML.
+3. Mỗi giá trị (Value) xin hãy dịch sang 3 ngôn ngữ và cung cấp dưới dạng Object với đuôi _vn, _en, _jp.
+
+Ví dụ cấu trúc mong muốn:
+{
+  "label_so_lo": { "vn": "Số lô", "en": "Lot No.", "jp": "ロット番号" },
+  "so_lo": { "vn": "1234", "en": "1234", "jp": "1234" },
+  "ket_qua_kiem_nghiem": { "vn": "Đạt", "en": "Pass", "jp": "適" }
+}`;
+
+const PromptHelper = ({ title, promptText }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(promptText);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div className="shrink-0 border-b border-slate-200 bg-sky-50 transition-all">
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full text-left px-3 py-2 hover:bg-sky-100 flex items-center justify-between transition-colors outline-none"
+            >
+                <div className="flex items-center gap-2 text-[10px] font-bold text-sky-700 uppercase tracking-wider">
+                    <Sparkles size={12} className={isOpen ? "text-amber-500" : ""} /> {title}
+                </div>
+                <div className="text-[10px] text-sky-500 font-medium">
+                    {isOpen ? 'Đóng lại' : 'Bấm để Copy'}
+                </div>
+            </button>
+
+            {isOpen && (
+                <div className="px-3 pb-3 pt-1">
+                    <div className="flex justify-between items-center mb-2">
+                        <p className="text-[10px] text-slate-500 font-medium italic">Copy lệnh này gửi cho AI kèm theo hình ảnh:</p>
+                        <button
+                            onClick={handleCopy}
+                            className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold transition-all ${copied ? 'bg-emerald-100 text-emerald-700' : 'bg-white shadow-sm text-slate-700 hover:bg-slate-100 border border-slate-200'}`}
+                        >
+                            {copied ? <Check size={12} /> : <Copy size={12} />}
+                            {copied ? 'Đã Copy!' : 'Copy'}
+                        </button>
+                    </div>
+                    <div className="text-[9px] font-mono whitespace-pre-wrap text-slate-600 max-h-32 overflow-y-auto p-2 bg-white border border-sky-100 rounded shadow-inner">
+                        {promptText}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 };
 
 const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
@@ -247,6 +320,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                                 HTML Template (Bản vẽ)
                             </h3>
                         </div>
+                        <PromptHelper title="Lệnh AI Vẽ HTML Template" promptText={htmlPromptText} />
                         <textarea
                             className="w-full flex-grow p-4 bg-[#1E1E1E] text-blue-300 font-mono text-[11px] leading-relaxed focus:outline-none resize-none"
                             value={htmlInput}
@@ -265,6 +339,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                             </h3>
                             {jsonError && <span className="text-[10px] text-red-500 font-bold bg-red-100 px-2 py-1 rounded truncate max-w-[200px]">{jsonError}</span>}
                         </div>
+                        <PromptHelper title="Lệnh AI Trích Xuất JSON" promptText={jsonPromptText} />
                         <textarea
                             className={`w-full flex-grow p-4 bg-[#1E1E1E] text-emerald-300 font-mono text-[11px] leading-relaxed focus:outline-none resize-none ${jsonError ? 'border-2 border-red-500' : ''}`}
                             value={jsonInput}
