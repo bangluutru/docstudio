@@ -275,11 +275,11 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     // -----------------------------------------------------------------
     const stepDownSpacing = () => {
         const scale = ['0', '0.5', '1', '1.5', '2', '2.5', '3', '3.5', '4', '5', '6', '7', '8', '9', '10', '11', '12', '14', '16', '20', '24', '28', '32', '36', '40', '44', '48', '52', '56', '60', '64', '72', '80', '96'];
-        const res = htmlInput.replace(/\b([mp][tbyxlr]?-|gap-)(\d+|1\.5|2\.5|3\.5)\b/g, (match, prefix, val) => {
+        const res = htmlInput.replace(/\b([mp][tbyxlr]?-|gap-)(\d+|1\.5|2\.5|3\.5)(?![a-zA-Z0-9_-])/g, (match, prefix, val) => {
             const idx = scale.indexOf(val);
             if (idx > 0) return prefix + scale[Math.max(0, idx - 2)];
             return match;
-        }).replace(/\b([mp][tbyxlr]?-|gap-)\[(\d+)px\]\b/g, (match, prefix, val) => {
+        }).replace(/\b([mp][tbyxlr]?-|gap-)\[(\d+)px\](?![a-zA-Z0-9_-])/g, (match, prefix, val) => {
             const px = parseInt(val, 10);
             return `${prefix}[${Math.max(0, px - 8)}px]`;
         });
@@ -288,14 +288,14 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
 
     const stepDownHeight = () => {
         const scale = ['0', '0.5', '1', '1.5', '2', '2.5', '3', '3.5', '4', '5', '6', '7', '8', '9', '10', '11', '12', '14', '16', '20', '24', '28', '32', '36', '40', '44', '48', '52', '56', '60', '64', '72', '80', '96'];
-        const res = htmlInput.replace(/\b(min-h-|h-)(\d+|1\.5|2\.5|3\.5)\b/g, (match, prefix, val) => {
+        const res = htmlInput.replace(/\b(min-h-|h-)(\d+|1\.5|2\.5|3\.5)(?![a-zA-Z0-9_-])/g, (match, prefix, val) => {
             const idx = scale.indexOf(val);
             if (idx > 1) return prefix + scale[Math.max(1, idx - 3)];
             return match;
-        }).replace(/\b(min-h-|h-)\[(\d+)px\]\b/g, (match, prefix, val) => {
+        }).replace(/\b(min-h-|h-)\[(\d+)px\](?![a-zA-Z0-9_-])/g, (match, prefix, val) => {
             const px = parseInt(val, 10);
             return `${prefix}[${Math.max(4, px - 16)}px]`;
-        }).replace(/\b(min-h-|h-)(screen|full)\b/g, '$1auto');
+        }).replace(/\b(min-h-|h-)(screen|full)(?![a-zA-Z0-9_-])/g, '$1auto');
         setHtmlInput(res);
     };
 
