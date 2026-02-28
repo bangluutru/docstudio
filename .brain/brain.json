@@ -32,16 +32,22 @@
     "features": [
         "Certificate Rendering: Hiển thị chứng chỉ đa ngôn ngữ với các thông số tùy biến.",
         "Analysis Report Rendering: Render trang báo cáo phân tích chi tiết.",
-        "Drag and Drop Content Management: Sắp xếp các thành phần tài liệu."
+        "Drag and Drop Content Management: Sắp xếp các thành phần tài liệu.",
+        "Dynamic HTML Builder (Tab 5): Hệ thống tạo form in A4 linh hoạt qua chèn code HTML từ AI, tự động map biến `{{...}}` với JSON đa ngôn ngữ."
     ],
     "knowledge_items": {
         "patterns": [
             "SVG-in-table-cell rendering",
-            "Coordinate-based stamp positioning"
+            "Coordinate-based stamp positioning",
+            "Client-side CSS Print scaling (`contentScale` + Zoom) để nhét vừa khổ A4 mà không vỡ bảng do text dài",
+            "Regex-based HTML auto-clippers (Gọt Chiều Cao, Ép Khoảng Trắng) để dọn dẹp Tailwind code từ AI"
         ],
         "gotchas": [
-            "Watch out for page overflow when content exceeds page limits (Chú ý lỗi tràn trang khi in)"
+            "Watch out for page overflow when content exceeds page limits (Chú ý lỗi tràn trang khi in)",
+            "Không để AI sinh CSS ép cứng chiều cao (như h-64, min-h-[...]) vì sẽ làm layout không co giãn được khi text thay đổi"
         ],
-        "conventions": []
+        "conventions": [
+            "Tất cả text trên form mẫu do AI sinh phải bọc trong biến (vd: `{{label_name}}`) để đảm bảo chuyển ngữ đổi 100% được bản dịch."
+        ]
     }
 }
