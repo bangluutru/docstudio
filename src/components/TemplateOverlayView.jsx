@@ -177,6 +177,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     const [currentLang, setCurrentLang] = useState(globalDisplayLang || 'vn');
     const [isEditing, setIsEditing] = useState(false);
     const [contentScale, setContentScale] = useState(1);
+    const [bodyFontSizeIndex, setBodyFontSizeIndex] = useState(4); // default 4 = text-sm
 
     // Sync with global lang if it changes, but allow local override
     useEffect(() => {
@@ -273,9 +274,11 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     // HTML RESCUE TOOLS
     // -----------------------------------------------------------------
     const changeFontSize = (direction) => {
-        const sizes = ['text-[9px]', 'text-[10px]', 'text-[11px]', 'text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-4xl'];
-        const res = htmlInput.replace(/\btext-(xs|sm|base|lg|xl|[2-4]xl|\[\d+px\])\b/g, (match) => {
-            let idx = sizes.indexOf(match);
+        const FONT_SIZES = ['text-[9px]', 'text-[10px]', 'text-[11px]', 'text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-4xl', 'text-5xl', 'text-6xl'];
+
+        // 1. Update explicit text- classes in the HTML code
+        const res = htmlInput.replace(/\btext-(xs|sm|base|lg|xl|[2-6]xl|\[\d+px\])(?!\w)/g, (match) => {
+            let idx = FONT_SIZES.indexOf(match);
             if (idx === -1) {
                 // Parse arbitrary px values like text-[13px]
                 const pxMatch = match.match(/\[(\d+)px\]/);
@@ -288,10 +291,18 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
             }
             let newIdx = idx + direction;
             if (newIdx < 0) newIdx = 0;
-            if (newIdx >= sizes.length) newIdx = sizes.length - 1;
-            return sizes[newIdx];
+            if (newIdx >= FONT_SIZES.length) newIdx = FONT_SIZES.length - 1;
+            return FONT_SIZES[newIdx];
         });
         setHtmlInput(res);
+
+        // 2. Update global wrapper font size to scale the body
+        setBodyFontSizeIndex(prev => {
+            let newIdx = prev + direction;
+            if (newIdx < 0) newIdx = 0;
+            if (newIdx >= FONT_SIZES.length) newIdx = FONT_SIZES.length - 1;
+            return newIdx;
+        });
     };
 
     // -----------------------------------------------------------------
@@ -461,7 +472,8 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                     <div className="flex-grow overflow-auto p-4 md:p-8 flex justify-center bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-slate-300/50">
                         {/* THE ACTUAL PAPER TO PRINT */}
                         <div
-                            className={`bg-white shadow-2xl transition-all print-target outline-none relative
+                            className={`bg-white shadow-2xl transition-all print-target outline-none relative 
+                            ${['text-[9px]', 'text-[10px]', 'text-[11px]', 'text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-4xl', 'text-5xl', 'text-6xl'][bodyFontSizeIndex]}
                             [&>div]:max-w-none [&>div]:w-full [&>div]:h-full [&>div]:m-0 [&>div]:border-none [&>div]:shadow-none
                             ${isEditing ? 'ring-4 ring-amber-400 border-amber-500' : ''}`}
                             style={{
