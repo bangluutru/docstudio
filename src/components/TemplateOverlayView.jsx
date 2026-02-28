@@ -94,10 +94,17 @@ const interpolateHTML = (htmlTemplate, parsedData, currentLang) => {
     });
 };
 
-const TemplateOverlayView = ({ displayLang }) => {
+const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     // -----------------------------------------------------------------
     // STATE
     // -----------------------------------------------------------------
+    const [currentLang, setCurrentLang] = useState(globalDisplayLang || 'vn');
+    const [isEditing, setIsEditing] = useState(false);
+
+    // Sync with global lang if it changes, but allow local override
+    useEffect(() => {
+        if (globalDisplayLang) setCurrentLang(globalDisplayLang);
+    }, [globalDisplayLang]);
     const [htmlInput, setHtmlInput] = useState(`<div class="w-[210mm] min-h-[297mm] mx-auto bg-white border border-gray-200 shadow-xl p-10 font-sans text-sm text-gray-900 leading-relaxed">
   <div class="flex justify-between items-center border-b-2 border-gray-800 pb-4 mb-8">
     <div>
@@ -182,8 +189,8 @@ const TemplateOverlayView = ({ displayLang }) => {
     // RENDER: Interpolate HTML
     // -----------------------------------------------------------------
     const finalHtml = useMemo(() => {
-        return interpolateHTML(htmlInput, parsedData, displayLang);
-    }, [htmlInput, parsedData, displayLang]);
+        return interpolateHTML(htmlInput, parsedData, currentLang);
+    }, [htmlInput, parsedData, currentLang]);
 
     // -----------------------------------------------------------------
     // PRINT ACTION
@@ -209,12 +216,20 @@ const TemplateOverlayView = ({ displayLang }) => {
                         </div>
                     </div>
 
-                    <button
-                        onClick={handlePrint}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl shadow-lg transition-all"
-                    >
-                        <Printer size={16} /> Print / Xuất PDF
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setIsEditing(!isEditing)}
+                            className={`flex items-center gap-2 px-6 py-2.5 font-bold rounded-xl shadow-lg transition-all ${isEditing ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-white'}`}
+                        >
+                            <FileText size={16} /> {isEditing ? 'Đang Sửa...' : 'Chỉnh Sửa Tay'}
+                        </button>
+                        <button
+                            onClick={handlePrint}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl shadow-lg transition-all"
+                        >
+                            <Printer size={16} /> Print / Xuất PDF
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -272,7 +287,24 @@ const TemplateOverlayView = ({ displayLang }) => {
                             </span>
                         </div>
                         <div className="flex gap-2 text-[10px] font-bold">
-                            <span className="bg-sky-100 text-sky-700 px-2 py-1 rounded-full flex items-center gap-1"><Languages size={12} /> Ngôn ngữ: {displayLang.toUpperCase()}</span>
+                            <button
+                                onClick={() => setCurrentLang('vn')}
+                                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${currentLang === 'vn' ? 'bg-sky-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                            >
+                                Tiếng Việt
+                            </button>
+                            <button
+                                onClick={() => setCurrentLang('en')}
+                                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${currentLang === 'en' ? 'bg-sky-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                            >
+                                English
+                            </button>
+                            <button
+                                onClick={() => setCurrentLang('jp')}
+                                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${currentLang === 'jp' ? 'bg-sky-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                            >
+                                日本語
+                            </button>
                         </div>
                     </div>
 
@@ -280,13 +312,17 @@ const TemplateOverlayView = ({ displayLang }) => {
                     <div className="flex-grow overflow-auto p-4 md:p-8 flex justify-center bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-slate-300/50">
                         {/* THE ACTUAL PAPER TO PRINT */}
                         <div
-                            className="bg-white shadow-2xl transition-all print-target"
+                            className={`bg-white shadow-2xl transition-all print-target outline-none 
+                            [&>div]:max-w-none [&>div]:w-full [&>div]:h-full [&>div]:m-0 [&>div]:p-0 [&>div]:border-none [&>div]:shadow-none
+                            ${isEditing ? 'ring-4 ring-amber-400 border-amber-500' : ''}`}
                             style={{
                                 width: '210mm',
                                 minHeight: '297mm', // strict A4 ratio for preview
+                                padding: '12mm', // Internal safe margin
                                 transformOrigin: 'top center',
-                                // CSS magic to make it scale down if monitor is small, but print at 100%
                             }}
+                            contentEditable={isEditing}
+                            suppressContentEditableWarning={true}
                             dangerouslySetInnerHTML={{ __html: finalHtml }}
                         />
                     </div>
