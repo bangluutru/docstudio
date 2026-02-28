@@ -17,9 +17,58 @@ import {
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 
 // =====================================================================
+// UI Translations
+// =====================================================================
+const uiText = {
+    vn: {
+        subtitle: 'TÁCH & GHÉP TRANG PDF',
+        dropZone: 'Kéo thả file PDF vào đây',
+        dropHint: 'hoặc click để chọn file',
+        pages: 'trang',
+        selected: 'đã chọn',
+        selectAll: 'Chọn tất cả',
+        deselectAll: 'Bỏ chọn',
+        downloadIndividual: 'Tải riêng lẻ',
+        downloadMerged: 'Ghép thành 1 file',
+        processing: 'Đang xử lý PDF...',
+        downloadPage: 'Tải trang',
+        page: 'Trang',
+    },
+    en: {
+        subtitle: 'PDF PAGE SPLITTER & MERGER',
+        dropZone: 'Drag & drop PDF file here',
+        dropHint: 'or click to choose file',
+        pages: 'pages',
+        selected: 'selected',
+        selectAll: 'Select all',
+        deselectAll: 'Deselect',
+        downloadIndividual: 'Download individual',
+        downloadMerged: 'Merge into 1 file',
+        processing: 'Processing PDF...',
+        downloadPage: 'Download page',
+        page: 'Page',
+    },
+    jp: {
+        subtitle: 'PDFページ分割・結合',
+        dropZone: 'PDFファイルをここにドラッグ＆ドロップ',
+        dropHint: 'またはクリックしてファイルを選択',
+        pages: 'ページ',
+        selected: '選択中',
+        selectAll: 'すべて選択',
+        deselectAll: '選択解除',
+        downloadIndividual: '個別ダウンロード',
+        downloadMerged: '1ファイルに結合',
+        processing: 'PDF処理中...',
+        downloadPage: 'ページをダウンロード',
+        page: 'ページ',
+    },
+};
+
+// =====================================================================
 // PdfSplitterView — PDF Page Splitter & Merger
 // =====================================================================
-const PdfSplitterView = () => {
+const PdfSplitterView = ({ displayLang = 'vn' }) => {
+    const t = uiText[displayLang] || uiText.vn;
     const [pdfFile, setPdfFile] = useState(null);        // ArrayBuffer
     const [fileName, setFileName] = useState('');
     const [pageCount, setPageCount] = useState(0);
@@ -167,7 +216,7 @@ const PdfSplitterView = () => {
                         <h1 className="text-xl font-black tracking-tight uppercase italic">DocStudio</h1>
                     </div>
                     <p className="text-[10px] text-rose-200 font-bold uppercase tracking-widest mt-0.5">
-                        PDF Page Splitter & Merger
+                        {t.subtitle}
                     </p>
                 </div>
             </div>
@@ -187,8 +236,8 @@ const PdfSplitterView = () => {
                     >
                         <Upload size={64} strokeWidth={1.2} className={isDragging ? 'text-rose-400' : 'text-slate-300'} />
                         <div className="text-center">
-                            <p className="text-lg font-bold text-slate-500">Kéo thả file PDF vào đây</p>
-                            <p className="text-sm text-slate-400 mt-1">hoặc click để chọn file</p>
+                            <p className="text-lg font-bold text-slate-500">{t.dropZone}</p>
+                            <p className="text-sm text-slate-400 mt-1">{t.dropHint}</p>
                         </div>
                         <input
                             ref={fileInputRef}
@@ -207,20 +256,20 @@ const PdfSplitterView = () => {
                                     {fileName}
                                 </div>
                                 <span className="text-sm text-slate-500">
-                                    {pageCount} trang · <strong className="text-rose-600">{selectedCount}</strong> đã chọn
+                                    {pageCount} {t.pages} · <strong className="text-rose-600">{selectedCount}</strong> {t.selected}
                                 </span>
                                 <div className="flex gap-1">
                                     <button
                                         onClick={selectAll}
                                         className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-all"
                                     >
-                                        Chọn tất cả
+                                        {t.selectAll}
                                     </button>
                                     <button
                                         onClick={deselectAll}
                                         className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 transition-all"
                                     >
-                                        Bỏ chọn
+                                        {t.deselectAll}
                                     </button>
                                 </div>
                             </div>
@@ -231,14 +280,14 @@ const PdfSplitterView = () => {
                                     disabled={selectedCount === 0}
                                     className="flex items-center gap-1.5 px-4 py-2.5 bg-rose-600 text-white font-bold rounded-xl shadow-md hover:bg-rose-700 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed text-sm"
                                 >
-                                    <FileDown size={14} /> Tải riêng lẻ
+                                    <FileDown size={14} /> {t.downloadIndividual}
                                 </button>
                                 <button
                                     onClick={downloadMerged}
                                     disabled={selectedCount === 0}
                                     className="flex items-center gap-1.5 px-4 py-2.5 bg-indigo-600 text-white font-bold rounded-xl shadow-md hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed text-sm"
                                 >
-                                    <Layers size={14} /> Ghép thành 1 file
+                                    <Layers size={14} /> {t.downloadMerged}
                                 </button>
                                 <button
                                     onClick={clearAll}
@@ -253,7 +302,7 @@ const PdfSplitterView = () => {
                         {isLoading && (
                             <div className="flex items-center justify-center py-20">
                                 <div className="animate-spin w-10 h-10 border-4 border-rose-200 border-t-rose-600 rounded-full" />
-                                <span className="ml-4 text-slate-500 font-medium">Đang xử lý PDF...</span>
+                                <span className="ml-4 text-slate-500 font-medium">{t.processing}</span>
                             </div>
                         )}
 
@@ -288,7 +337,7 @@ const PdfSplitterView = () => {
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); extractPage(index); }}
                                                 className="absolute bottom-2 right-2 z-10 bg-white/90 backdrop-blur-sm text-slate-600 hover:text-rose-600 hover:bg-white p-1.5 rounded-lg shadow-sm opacity-0 group-hover:opacity-100 transition-all border border-slate-200"
-                                                title={`Tải trang ${index + 1}`}
+                                                title={`${t.downloadPage} ${index + 1}`}
                                             >
                                                 <FileDown size={12} />
                                             </button>
@@ -296,7 +345,7 @@ const PdfSplitterView = () => {
                                             {/* Thumbnail image */}
                                             <img
                                                 src={thumb}
-                                                alt={`Trang ${index + 1}`}
+                                                alt={`${t.page} ${index + 1}`}
                                                 className="w-full h-auto"
                                                 draggable={false}
                                             />

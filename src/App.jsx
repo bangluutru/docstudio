@@ -26,6 +26,7 @@ import LegalDocumentView from './components/LegalDocumentView';
 import PdfSplitterView from './components/PdfSplitterView';
 import PdfMergerView from './components/PdfMergerView';
 import TemplateOverlayView from './components/TemplateOverlayView';
+import { getLangVal } from './utils/lang';
 
 // --- UI Translations ---
 const uiTranslations = {
@@ -168,21 +169,7 @@ const uiTranslations = {
 
 const STORAGE_KEY = 'docstudio_pages_v1';
 
-// =====================================================================
-// P0: Global Translation Helper (Single Source of Truth)
-// =====================================================================
-// Extracts a string/array from an object by checking:
-// 1. obj[`${baseKey}_${lang}`]
-// 2. obj[`${baseKey}_vn`] (fallback)
-// 3. obj[baseKey] (no language suffix fallback)
-// Returns empty string '' if none found, unless defaultVal is provided.
-const getLangVal = (obj, baseKey, lang, defaultVal = '') => {
-  if (!obj) return defaultVal;
-  if (obj[`${baseKey}_${lang}`] !== undefined) return obj[`${baseKey}_${lang}`];
-  if (obj[`${baseKey}_vn`] !== undefined) return obj[`${baseKey}_vn`];
-  if (obj[baseKey] !== undefined) return obj[baseKey];
-  return defaultVal;
-};
+
 
 // =====================================================================
 // P0-A: Overflow detection hook — watches a DOM element for overflow
@@ -1100,7 +1087,7 @@ const App = () => {
       {activeTab === 'legal' ? (
         <LegalDocumentView displayLang={displayLang} onLangChange={setDisplayLang} />
       ) : activeTab === 'pdf-split' ? (
-        <PdfSplitterView />
+        <PdfSplitterView displayLang={displayLang} />
       ) : activeTab === 'pdf-merge' ? (
         <PdfMergerView displayLang={displayLang} />
       ) : activeTab === 'pdf-overlay' ? (

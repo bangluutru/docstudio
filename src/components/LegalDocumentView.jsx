@@ -15,17 +15,9 @@ import {
     Edit3,
     Eye,
 } from 'lucide-react';
+import { getLangVal } from '../utils/lang';
 
-// =====================================================================
-// Helper: Single Source of Truth for language resolution
-// =====================================================================
-const getLangVal = (obj, baseKey, lang, defaultVal = '') => {
-    if (!obj) return defaultVal;
-    if (obj[`${baseKey}_${lang}`] !== undefined) return obj[`${baseKey}_${lang}`];
-    if (obj[`${baseKey}_vn`] !== undefined) return obj[`${baseKey}_vn`];
-    if (obj[baseKey] !== undefined) return obj[baseKey];
-    return defaultVal;
-};
+
 
 // =====================================================================
 // Helper: Strip Gemini citation markers like [cite: 1], [cite: 1, 2]
