@@ -63,6 +63,16 @@ const uiTranslations = {
     metaLabel: "Thông tin chung",
     testResults: "Kết quả kiểm nghiệm",
     addTableRow: "+ Thêm hàng",
+    deletePageTitle: "Xóa trang này",
+    deleteLineTitle: "Xóa dòng",
+    undoLabel: "Hoàn tác",
+    pageListTitle: "Danh sách trang",
+    viewJsonSample: "Xem cấu trúc JSON mẫu",
+    tabCertificate: "Phiếu phân tích",
+    tabLegal: "Văn bản pháp lý",
+    tabPdfSplit: "Tách PDF",
+    tabPdfMerge: "Ghép PDF",
+    tabOverlay: "In Biểu Mẫu",
   },
   en: {
     signer: "REPORT PREPARER",
@@ -98,6 +108,16 @@ const uiTranslations = {
     metaLabel: "General Information",
     testResults: "Test Results",
     addTableRow: "+ Add row",
+    deletePageTitle: "Delete this page",
+    deleteLineTitle: "Delete line",
+    undoLabel: "Undo",
+    pageListTitle: "Page list",
+    viewJsonSample: "View sample JSON structure",
+    tabCertificate: "Certificates",
+    tabLegal: "Legal Documents",
+    tabPdfSplit: "PDF Splitter",
+    tabPdfMerge: "PDF Merger",
+    tabOverlay: "Template Print",
   },
   jp: {
     signer: "作成者",
@@ -133,6 +153,16 @@ const uiTranslations = {
     metaLabel: "基本情報",
     testResults: "試験結果",
     addTableRow: "+ 行を追加",
+    deletePageTitle: "このページを削除",
+    deleteLineTitle: "行を削除",
+    undoLabel: "元に戻す",
+    pageListTitle: "ページ一覧",
+    viewJsonSample: "サンプルJSON構造を見る",
+    tabCertificate: "分析票",
+    tabLegal: "法的文書",
+    tabPdfSplit: "PDF分割",
+    tabPdfMerge: "PDF結合",
+    tabOverlay: "テンプレート印刷",
   },
 };
 
@@ -276,7 +306,7 @@ const PageCard = ({
         ref={pageRef}
         className="page-a4 page-font bg-white w-[210mm] h-[297mm] p-[25mm] shadow-[0_20px_60px_-10px_rgba(0,0,0,0.12)] relative flex flex-col text-black border border-slate-100 rounded-sm group"
       >
-        <DeletePageBtn onDelete={() => onDeletePage(index)} />
+        <DeletePageBtn onDelete={() => onDeletePage(index)} t={t} />
 
         {/* Appendix Header */}
         <div className="font-sans mb-8 pb-4 border-b-2 border-slate-200">
@@ -357,7 +387,7 @@ const PageCard = ({
       className="page-a4 page-font bg-white w-[210mm] h-[297mm] p-[25mm] shadow-[0_20px_60px_-10px_rgba(0,0,0,0.12)] relative flex flex-col text-black border border-slate-100 rounded-sm group"
     >
       {/* P1-A: Per-page Delete */}
-      <DeletePageBtn onDelete={() => onDeletePage(index)} />
+      <DeletePageBtn onDelete={() => onDeletePage(index)} t={t} />
 
       {/* Header */}
       <div className="font-sans flex justify-between items-start mb-8 text-slate-500">
@@ -433,11 +463,11 @@ const PageCard = ({
 // ─── Sub-components ─────────────────────────────────────────────────
 
 // P1-A: Delete button shown on hover
-const DeletePageBtn = ({ onDelete }) => (
+const DeletePageBtn = ({ onDelete, t }) => (
   <button
     onClick={onDelete}
     className="no-print absolute top-3 right-3 w-8 h-8 bg-red-50 hover:bg-red-100 border border-red-200 rounded-full flex items-center justify-center text-red-400 hover:text-red-600 transition-all opacity-0 group-hover:opacity-100 z-10"
-    title="Xóa trang này"
+    title={t.deletePageTitle}
   >
     <X size={14} />
   </button>
@@ -468,7 +498,7 @@ const ContentLines = ({ lines, isEditing, pageIndex, displayLang, onEditChange, 
                 <button
                   onClick={() => onDeleteLine(pageIndex, `content_${displayLang}`, i)}
                   className="shrink-0 mt-2 w-5 h-5 rounded-full bg-red-50 hover:bg-red-100 border border-red-200 flex items-center justify-center text-red-300 hover:text-red-500 transition-all opacity-0 group-hover/line:opacity-100"
-                  title="Xóa dòng"
+                  title={t.deleteLineTitle}
                 >
                   <X size={9} />
                 </button>
@@ -587,7 +617,7 @@ const CertificatePage = ({
       className="page-a4 page-font bg-white w-[210mm] h-[297mm] shadow-[0_20px_60px_-10px_rgba(0,0,0,0.12)] relative flex flex-col text-black border border-slate-100 rounded-sm group"
       style={{ fontFamily: "'Times New Roman', Times, serif", padding: '12mm 15mm 15mm 15mm' }}
     >
-      <DeletePageBtn onDelete={() => onDeletePage(index)} />
+      <DeletePageBtn onDelete={() => onDeletePage(index)} t={t} />
 
       {/* Doc Header — date / recipient line above title (Japanese doc style) */}
       {page.doc_header && (
@@ -1024,7 +1054,7 @@ const App = () => {
             : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
             }`}
         >
-          <FileText size={15} /> {activeTab === 'certificate' ? (displayLang === 'vn' ? 'Phiếu phân tích' : displayLang === 'en' ? 'Certificates' : '分析票') : '📝'}
+          <FileText size={15} /> {activeTab === 'certificate' ? t.tabCertificate : '📝'}
         </button>
         <button
           onClick={() => setActiveTab('legal')}
@@ -1033,7 +1063,7 @@ const App = () => {
             : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
             }`}
         >
-          <Scale size={15} /> {activeTab === 'legal' ? (displayLang === 'vn' ? 'Văn bản pháp lý' : displayLang === 'en' ? 'Legal Documents' : '法的文書') : '⚖️'}
+          <Scale size={15} /> {activeTab === 'legal' ? t.tabLegal : '⚖️'}
         </button>
         <button
           onClick={() => setActiveTab('pdf-split')}
@@ -1042,7 +1072,7 @@ const App = () => {
             : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
             }`}
         >
-          <Scissors size={15} /> {activeTab === 'pdf-split' ? (displayLang === 'vn' ? 'Tách PDF' : displayLang === 'en' ? 'PDF Splitter' : 'PDF分割') : '✂️'}
+          <Scissors size={15} /> {activeTab === 'pdf-split' ? t.tabPdfSplit : '✂️'}
         </button>
         <button
           onClick={() => setActiveTab('pdf-merge')}
@@ -1051,7 +1081,7 @@ const App = () => {
             : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
             }`}
         >
-          <Combine size={15} /> {activeTab === 'pdf-merge' ? (displayLang === 'vn' ? 'Ghép PDF' : displayLang === 'en' ? 'PDF Merger' : 'PDF結合') : '📂'}
+          <Combine size={15} /> {activeTab === 'pdf-merge' ? t.tabPdfMerge : '📂'}
         </button>
         <button
           onClick={() => setActiveTab('pdf-overlay')}
@@ -1060,7 +1090,7 @@ const App = () => {
             : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
             }`}
         >
-          <Printer size={15} /> {activeTab === 'pdf-overlay' ? (displayLang === 'vn' ? 'In Biểu Mẫu' : displayLang === 'en' ? 'Template Print' : 'テンプレート印刷') : '🖨️'}
+          <Printer size={15} /> {activeTab === 'pdf-overlay' ? t.tabOverlay : '🖨️'}
         </button>
       </div>
 
@@ -1191,6 +1221,7 @@ const App = () => {
                   pageRefs={pageRefs}
                   displayLang={displayLang}
                   onReorder={handleReorder}
+                  pageListTitle={t.pageListTitle}
                 />
               ) : (
                 /* JSON example (only shown when no pages) */
@@ -1198,7 +1229,7 @@ const App = () => {
                   <details className="group">
                     <summary className="cursor-pointer text-xs text-slate-400 hover:text-slate-600 font-semibold flex items-center gap-1.5 select-none transition-colors">
                       <span className="group-open:rotate-90 inline-block transition-transform">▶</span>
-                      Xem cấu trúc JSON mẫu
+                      {t.viewJsonSample}
                     </summary>
                     <pre className="mt-2 p-3 bg-slate-900 text-emerald-400 rounded-xl text-[10px] font-mono overflow-x-auto leading-relaxed">
                       {`[
@@ -1320,6 +1351,7 @@ const App = () => {
           <UndoToast
             visible={toastVisible}
             message={`${t.deletedPage}`}
+            undoLabel={t.undoLabel}
             onUndo={handleUndoDelete}
             onDismiss={() => {
               setToastVisible(false);

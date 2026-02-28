@@ -46,8 +46,8 @@ const SortableNavItem = ({ page, index, isActive, onClick, displayLang }) => {
             style={style}
             onClick={onClick}
             className={`group flex items-center gap-2 px-2 py-2 rounded-lg cursor-pointer transition-all select-none ${isActive
-                    ? 'bg-indigo-50 border border-indigo-200'
-                    : 'hover:bg-slate-50 border border-transparent'
+                ? 'bg-indigo-50 border border-indigo-200'
+                : 'hover:bg-slate-50 border border-transparent'
                 }`}
         >
             {/* Drag handle */}
@@ -89,7 +89,7 @@ const SortableNavItem = ({ page, index, isActive, onClick, displayLang }) => {
  *   displayLang: string
  *   onReorder: (newPages) => void
  */
-const PageNavigator = ({ pages, pageRefs, displayLang, onReorder }) => {
+const PageNavigator = ({ pages, pageRefs, displayLang, onReorder, pageListTitle = 'Danh sách trang' }) => {
     const [activePageIndex, setActivePageIndex] = useState(0);
     const [activeDragId, setActiveDragId] = useState(null);
 
@@ -132,7 +132,7 @@ const PageNavigator = ({ pages, pageRefs, displayLang, onReorder }) => {
     return (
         <div className="pt-3 border-t border-slate-100">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 px-1">
-                Danh sách trang
+                {pageListTitle}
             </p>
             <DndContext
                 sensors={sensors}

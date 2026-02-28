@@ -8,8 +8,9 @@ import { RotateCcw, X } from 'lucide-react';
  *   message: string
  *   onUndo: () => void
  *   onDismiss: () => void
+ *   undoLabel: string
  */
-const UndoToast = ({ visible, message, onUndo, onDismiss }) => {
+const UndoToast = ({ visible, message, onUndo, onDismiss, undoLabel = 'Hoàn tác' }) => {
     return (
         <div
             className={`fixed bottom-8 right-8 z-[200] transition-all duration-300 ease-out ${visible
@@ -27,7 +28,7 @@ const UndoToast = ({ visible, message, onUndo, onDismiss }) => {
                     className="flex items-center gap-1.5 text-indigo-400 hover:text-indigo-300 font-bold text-sm shrink-0 transition-colors"
                 >
                     <RotateCcw size={13} />
-                    Hoàn tác
+                    {undoLabel}
                 </button>
                 <button
                     onClick={onDismiss}
