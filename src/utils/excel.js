@@ -434,12 +434,13 @@ export const exportMappedExcel = async ({
                     return;
                 }
 
-                // Adjust row numbers in cell references (e.g. G8 → G13, $G$12 → $G$17)
+                // Adjust row numbers in cell references (e.g. G13 → G14, $G$14 → $G$15)
+                // Only shift refs at/below the ORIGINAL last data row (footerStartRow - 1).
+                // This keeps data zone START fixed while extending the END.
+                const shiftThreshold = footerStartRow - 1; // original last data row
                 const adjusted = formula.replace(/(\$?)([A-Z]+)(\$?)(\d+)/gi, (match, dollarCol, col, dollarRow, rowStr) => {
                     const rowNum = parseInt(rowStr);
-                    // Only adjust references pointing to rows AT or BELOW the data start
-                    // AND at or above the old footer position (i.e., references into the data zone)
-                    if (rowNum >= dataStartRow) {
+                    if (rowNum >= shiftThreshold) {
                         const newRow = rowNum + diff;
                         if (newRow > 0) return `${dollarCol}${col}${dollarRow}${newRow}`;
                     }
