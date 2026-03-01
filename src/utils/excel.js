@@ -412,61 +412,77 @@ export const exportMappedExcel = async ({
         });
     }
 
-    // 11. Adjust formula row references to account for row changes
-    if (diff !== 0) {
-        ws.eachRow(row => {
-            row.eachCell(cell => {
-                const v = cell.value;
-                if (!v) return;
+    // 11. Adjust formulas: rebuild data-zone ranges + shift footer refs
+    const oldDataEnd = dataStartRow + existingDataSlots - 1;
+    const newDataEnd = dataStartRow + neededRows - 1;
 
-                let formula = null;
-                if (typeof v === 'object' && v.formula) {
-                    formula = v.formula;
-                } else if (typeof v === 'string' && v.startsWith('=')) {
-                    formula = v.substring(1);
-                }
+    ws.eachRow(row => {
+        row.eachCell(cell => {
+            const v = cell.value;
+            if (!v) return;
 
-                if (!formula) {
-                    // Fix shared formula corruption
-                    if (typeof v === 'object' && v.sharedFormula !== undefined) {
-                        cell.value = v.formula ? { formula: v.formula, result: v.result } : (v.result ?? '');
+            // Fix shared formula corruption first
+            if (typeof v === 'object' && v.sharedFormula !== undefined) {
+                cell.value = v.formula ? { formula: v.formula, result: v.result } : (v.result ?? '');
+                return;
+            }
+
+            let formula = null;
+            if (typeof v === 'object' && v.formula) {
+                formula = v.formula;
+            } else if (typeof v === 'string' && v.startsWith('=')) {
+                formula = v.substring(1);
+            }
+            if (!formula) return;
+
+            // Pass 1: Fix RANGE references (e.g. SUM(G8:G12) → SUM(G8:G13))
+            // Detect ranges that overlap the original data zone and rebuild them
+            let adjusted = formula.replace(
+                /(\$?[A-Z]+\$?)(\d+):(\$?[A-Z]+\$?)(\d+)/gi,
+                (match, colRef1, row1Str, colRef2, row2Str) => {
+                    const r1 = parseInt(row1Str);
+                    const r2 = parseInt(row2Str);
+
+                    // Range covers the original data zone → rebuild with new boundaries
+                    if (r1 >= dataStartRow && r1 <= oldDataEnd &&
+                        r2 >= dataStartRow && r2 <= oldDataEnd) {
+                        return `${colRef1}${dataStartRow}:${colRef2}${newDataEnd}`;
                     }
-                    return;
-                }
 
-                // Adjust row numbers in cell references (e.g. G13 → G14, $G$14 → $G$15)
-                // Only shift refs at/below the ORIGINAL last data row (footerStartRow - 1).
-                // This keeps data zone START fixed while extending the END.
-                const shiftThreshold = footerStartRow - 1; // original last data row
-                const adjusted = formula.replace(/(\$?)([A-Z]+)(\$?)(\d+)/gi, (match, dollarCol, col, dollarRow, rowStr) => {
-                    const rowNum = parseInt(rowStr);
-                    if (rowNum >= shiftThreshold) {
-                        const newRow = rowNum + diff;
-                        if (newRow > 0) return `${dollarCol}${col}${dollarRow}${newRow}`;
+                    // Range entirely in footer zone → shift both ends by diff
+                    if (r1 >= footerStartRow && r2 >= footerStartRow && diff !== 0) {
+                        return `${colRef1}${r1 + diff}:${colRef2}${r2 + diff}`;
                     }
+
                     return match;
-                });
+                }
+            );
 
-                if (adjusted !== formula) {
-                    if (typeof v === 'object') {
-                        cell.value = { formula: adjusted, result: v.result };
-                    } else {
-                        cell.value = { formula: adjusted };
+            // Pass 2: Fix STANDALONE references (not part of a range)
+            // Only shift refs to footer cells (>= original footerStartRow)
+            if (diff !== 0) {
+                adjusted = adjusted.replace(
+                    /(\$?[A-Z]+\$?)(\d+)(?![\d:])/gi,
+                    (match, colRef, rowStr) => {
+                        const rowNum = parseInt(rowStr);
+                        if (rowNum >= footerStartRow) {
+                            const newRow = rowNum + diff;
+                            if (newRow > 0) return `${colRef}${newRow}`;
+                        }
+                        return match;
                     }
+                );
+            }
+
+            if (adjusted !== formula) {
+                if (typeof v === 'object') {
+                    cell.value = { formula: adjusted, result: v.result };
+                } else {
+                    cell.value = { formula: adjusted };
                 }
-            });
+            }
         });
-    } else {
-        // No row change, but still fix shared formulas
-        ws.eachRow(row => {
-            row.eachCell(cell => {
-                const v = cell.value;
-                if (v && typeof v === 'object' && v.sharedFormula !== undefined) {
-                    cell.value = v.formula ? { formula: v.formula, result: v.result } : (v.result ?? '');
-                }
-            });
-        });
-    }
+    });
 
     // 12. Remove extra sheets (keep only the first one)
     while (workbook.worksheets.length > 1) {
