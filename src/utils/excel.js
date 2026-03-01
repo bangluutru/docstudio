@@ -136,10 +136,17 @@ export const readExcelFile = async (file, isSource = true) => {
                         const cells = [];
                         for (let c = 1; c <= colCount; c++) {
                             const cell = row.getCell(c);
-                            cells.push({
-                                col: c,
-                                value: cell.value !== null && cell.value !== undefined ? String(cell.value) : ''
-                            });
+                            let displayVal = '';
+                            if (cell.value !== null && cell.value !== undefined) {
+                                if (typeof cell.value === 'object' && cell.value.formula) {
+                                    displayVal = '=' + cell.value.formula;
+                                } else if (typeof cell.value === 'object' && cell.value.result !== undefined) {
+                                    displayVal = String(cell.value.result);
+                                } else {
+                                    displayVal = String(cell.value);
+                                }
+                            }
+                            cells.push({ col: c, value: displayVal });
                         }
                         headerZone.push({ rowNum: r, cells });
                     }
@@ -150,10 +157,17 @@ export const readExcelFile = async (file, isSource = true) => {
                         const cells = [];
                         for (let c = 1; c <= colCount; c++) {
                             const cell = row.getCell(c);
-                            cells.push({
-                                col: c,
-                                value: cell.value !== null && cell.value !== undefined ? String(cell.value) : ''
-                            });
+                            let displayVal = '';
+                            if (cell.value !== null && cell.value !== undefined) {
+                                if (typeof cell.value === 'object' && cell.value.formula) {
+                                    displayVal = '=' + cell.value.formula;
+                                } else if (typeof cell.value === 'object' && cell.value.result !== undefined) {
+                                    displayVal = String(cell.value.result);
+                                } else {
+                                    displayVal = String(cell.value);
+                                }
+                            }
+                            cells.push({ col: c, value: displayVal });
                         }
                         footerZone.push({ rowNum: r, cells });
                     }
@@ -398,15 +412,23 @@ export const exportMappedExcel = async ({
         });
     }
 
-    // 10. Footer zone edits
+    // 10. Footer zone edits (formula-aware: detect = prefix)
     if (footerZone?.length > 0) {
         footerZone.forEach(zr => {
             const nr = zr.rowNum + diff;
             if (nr > 0) {
                 const row = ws.getRow(nr);
                 zr.cells.forEach(cd => {
-                    const ex = String(row.getCell(cd.col).value ?? '');
-                    if (cd.value !== ex && cd.value.trim()) row.getCell(cd.col).value = cd.value;
+                    if (!cd.value || !cd.value.trim()) return;
+                    if (cd.value.startsWith('=')) {
+                        // User-edited formula → write as Excel formula
+                        row.getCell(cd.col).value = { formula: cd.value.substring(1) };
+                    } else {
+                        const ex = String(row.getCell(cd.col).value ?? '');
+                        if (cd.value !== ex) {
+                            row.getCell(cd.col).value = cd.value;
+                        }
+                    }
                 });
             }
         });
