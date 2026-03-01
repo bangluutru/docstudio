@@ -15,6 +15,8 @@ import {
   Combine,
   Scissors,
   FileSpreadsheet,
+  Award,
+  BookOpen,
 } from 'lucide-react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import UndoToast from './components/UndoToast';
@@ -24,6 +26,7 @@ import PdfSplitterView from './components/PdfSplitterView';
 import PdfMergerView from './components/PdfMergerView';
 import TemplateOverlayView from './components/TemplateOverlayView';
 import ExcelMappingView from './components/ExcelMappingView';
+import UserGuideView from './components/UserGuideView';
 import PageCard from './components/PageCard';
 import PromptHelper from './components/PromptHelper';
 import { CERT_PROMPT_TEXT } from './utils/prompts';
@@ -206,7 +209,7 @@ const App = () => {
             : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
             }`}
         >
-          <FileText size={15} /> {activeTab === 'certificate' ? t.tabCertificate : '📝'}
+          <Award size={15} /> {activeTab === 'certificate' ? t.tabCertificate : '🏅'}
         </button>
         <button
           onClick={() => setActiveTab('legal')}
@@ -253,6 +256,15 @@ const App = () => {
         >
           <FileSpreadsheet size={15} /> {activeTab === 'excelMapping' ? t.tabExcelMapping : '📊'}
         </button>
+        <button
+          onClick={() => setActiveTab('guide')}
+          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-3 transition-all ${activeTab === 'guide'
+            ? 'border-slate-600 text-slate-700 bg-slate-50/50'
+            : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+            }`}
+        >
+          <BookOpen size={15} /> {activeTab === 'guide' ? t.tabGuide : '📖'}
+        </button>
       </div>
 
       {/* ============================================================
@@ -268,6 +280,8 @@ const App = () => {
         <TemplateOverlayView displayLang={displayLang} />
       ) : activeTab === 'excelMapping' ? (
         <ExcelMappingView t={t} displayLang={displayLang} />
+      ) : activeTab === 'guide' ? (
+        <UserGuideView displayLang={displayLang} />
       ) : (
         <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900">
 
