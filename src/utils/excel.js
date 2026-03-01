@@ -435,17 +435,20 @@ export const exportMappedExcel = async ({
             }
             if (!formula) return;
 
-            // Pass 1: Fix RANGE references (e.g. SUM(G8:G12) → SUM(G8:G13))
-            // Detect ranges that overlap the original data zone and rebuild them
+            // Pass 1: Fix RANGE references (e.g. SUM(H17:H29) → SUM(H19:H24))
+            // Detect VERTICAL ranges that OVERLAP the original data zone and rebuild
             let adjusted = formula.replace(
                 /(\$?[A-Z]+\$?)(\d+):(\$?[A-Z]+\$?)(\d+)/gi,
                 (match, colRef1, row1Str, colRef2, row2Str) => {
                     const r1 = parseInt(row1Str);
                     const r2 = parseInt(row2Str);
 
-                    // Range covers the original data zone → rebuild with new boundaries
-                    if (r1 >= dataStartRow && r1 <= oldDataEnd &&
-                        r2 >= dataStartRow && r2 <= oldDataEnd) {
+                    // Check same column (only adjust vertical ranges, not horizontal)
+                    const col1 = colRef1.replace(/\$/g, '').toUpperCase();
+                    const col2 = colRef2.replace(/\$/g, '').toUpperCase();
+
+                    // Vertical range that OVERLAPS the data zone → rebuild to exact data boundaries
+                    if (col1 === col2 && r1 <= oldDataEnd && r2 >= dataStartRow) {
                         return `${colRef1}${dataStartRow}:${colRef2}${newDataEnd}`;
                     }
 
