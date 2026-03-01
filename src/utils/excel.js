@@ -302,11 +302,27 @@ export const exportMappedExcel = async ({
     const diff = neededRows - existingDataSlots;
     const maxCol = ws.columnCount || 20;
 
-    // 1. Column map
+    // 1. Column map (merge-aware: always use leftmost column of merged headers)
     const colMap = {};
     ws.getRow(headerRowNum).eachCell((cell, cn) => {
         const v = String(cell.value || '').trim();
         if (v) colMap[v] = cn;
+    });
+
+    // Fix: For merged header cells, remap to leftmost column
+    const headerMerges = collectAllMerges(ws).map(parseMerge).filter(Boolean);
+    headerMerges.forEach(m => {
+        if (m.top <= headerRowNum && m.bottom >= headerRowNum) {
+            // This merge covers the header row
+            // Find if any colMap entry points to a column within this merge
+            Object.keys(colMap).forEach(header => {
+                const col = colMap[header];
+                if (col >= m.left && col <= m.right) {
+                    // Remap to leftmost column of the merge
+                    colMap[header] = m.left;
+                }
+            });
+        }
     });
 
     // 2. Base styles
@@ -406,7 +422,12 @@ export const exportMappedExcel = async ({
         });
     });
 
-    // 12. Download
+    // 12. Remove extra sheets (keep only the first one)
+    while (workbook.worksheets.length > 1) {
+        workbook.removeWorksheet(workbook.worksheets[workbook.worksheets.length - 1].id);
+    }
+
+    // 13. Download
     const buf = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = window.URL.createObjectURL(blob);
