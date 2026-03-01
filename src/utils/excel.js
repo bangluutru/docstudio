@@ -412,15 +412,60 @@ export const exportMappedExcel = async ({
         });
     }
 
-    // 11. Fix shared formulas
-    ws.eachRow(row => {
-        row.eachCell(cell => {
-            const v = cell.value;
-            if (v && typeof v === 'object' && v.sharedFormula !== undefined) {
-                cell.value = v.formula ? { formula: v.formula, result: v.result } : (v.result ?? '');
-            }
+    // 11. Adjust formula row references to account for row changes
+    if (diff !== 0) {
+        ws.eachRow(row => {
+            row.eachCell(cell => {
+                const v = cell.value;
+                if (!v) return;
+
+                let formula = null;
+                if (typeof v === 'object' && v.formula) {
+                    formula = v.formula;
+                } else if (typeof v === 'string' && v.startsWith('=')) {
+                    formula = v.substring(1);
+                }
+
+                if (!formula) {
+                    // Fix shared formula corruption
+                    if (typeof v === 'object' && v.sharedFormula !== undefined) {
+                        cell.value = v.formula ? { formula: v.formula, result: v.result } : (v.result ?? '');
+                    }
+                    return;
+                }
+
+                // Adjust row numbers in cell references (e.g. G8 → G13, $G$12 → $G$17)
+                const adjusted = formula.replace(/(\$?)([A-Z]+)(\$?)(\d+)/gi, (match, dollarCol, col, dollarRow, rowStr) => {
+                    const rowNum = parseInt(rowStr);
+                    // Only adjust references pointing to rows AT or BELOW the data start
+                    // AND at or above the old footer position (i.e., references into the data zone)
+                    if (rowNum >= dataStartRow) {
+                        const newRow = rowNum + diff;
+                        if (newRow > 0) return `${dollarCol}${col}${dollarRow}${newRow}`;
+                    }
+                    return match;
+                });
+
+                if (adjusted !== formula) {
+                    if (typeof v === 'object') {
+                        cell.value = { formula: adjusted, result: v.result };
+                    } else {
+                        cell.value = { formula: adjusted };
+                    }
+                }
+            });
         });
-    });
+    } else {
+        // No row change, but still fix shared formulas
+        ws.eachRow(row => {
+            row.eachCell(cell => {
+                const v = cell.value;
+                if (v && typeof v === 'object' && v.sharedFormula !== undefined) {
+                    cell.value = v.formula ? { formula: v.formula, result: v.result } : (v.result ?? '');
+                }
+            });
+        });
+    }
 
     // 12. Remove extra sheets (keep only the first one)
     while (workbook.worksheets.length > 1) {

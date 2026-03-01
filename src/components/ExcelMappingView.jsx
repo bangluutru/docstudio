@@ -158,16 +158,73 @@ export default function ExcelMappingView({ t: tProp, displayLang }) {
         if (mappingRules.length === 0) return;
         const name = window.prompt("Enter profile name:", currentProfileName === 'New Profile' ? '' : currentProfileName);
         if (!name) return;
-        const newProfiles = { ...profiles, [name]: mappingRules };
+
+        // Convert buffer to base64 for storage
+        let bufferBase64 = null;
+        if (targetBuffer) {
+            const bytes = new Uint8Array(targetBuffer);
+            let binary = '';
+            for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+            bufferBase64 = btoa(binary);
+        }
+
+        const profileData = {
+            mappingRules,
+            targetHeaders,
+            headerRowIndex,
+            headerZone,
+            footerZone,
+            footerStartRow,
+            existingDataSlots,
+            colCount,
+            targetBuffer: bufferBase64,
+            targetFile: targetFile || name
+        };
+
+        const newProfiles = { ...profiles, [name]: profileData };
         setProfiles(newProfiles);
         setCurrentProfileName(name);
-        localStorage.setItem('docstudio_mapping_profiles', JSON.stringify(newProfiles));
+        try {
+            localStorage.setItem('docstudio_mapping_profiles', JSON.stringify(newProfiles));
+        } catch (e) {
+            // If localStorage is full (buffer too large), save without buffer
+            const lite = { ...profileData, targetBuffer: null };
+            const liteProfiles = { ...profiles, [name]: lite };
+            localStorage.setItem('docstudio_mapping_profiles', JSON.stringify(liteProfiles));
+            setError('Profile saved (without template - file too large for storage). Please re-upload template when exporting.');
+        }
     };
 
     const loadProfile = (name) => {
-        if (profiles[name]) {
-            setMappingRules(profiles[name]);
+        const profile = profiles[name];
+        if (!profile) return;
+
+        // Support legacy format (just mapping rules array)
+        if (Array.isArray(profile)) {
+            setMappingRules(profile);
             setCurrentProfileName(name);
+            return;
+        }
+
+        setMappingRules(profile.mappingRules || []);
+        setCurrentProfileName(name);
+
+        // Restore template state if available
+        if (profile.targetHeaders) setTargetHeaders(profile.targetHeaders);
+        if (profile.headerRowIndex !== undefined) setHeaderRowIndex(profile.headerRowIndex);
+        if (profile.headerZone) setHeaderZone(profile.headerZone);
+        if (profile.footerZone) setFooterZone(profile.footerZone);
+        if (profile.footerStartRow) setFooterStartRow(profile.footerStartRow);
+        if (profile.existingDataSlots !== undefined) setExistingDataSlots(profile.existingDataSlots);
+        if (profile.colCount) setColCount(profile.colCount);
+        if (profile.targetFile) setTargetFile(profile.targetFile);
+
+        // Restore buffer from base64
+        if (profile.targetBuffer) {
+            const binary = atob(profile.targetBuffer);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            setTargetBuffer(bytes.buffer);
         }
     };
 
