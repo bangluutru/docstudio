@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -6,12 +7,36 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 1. Create Target Supplier Template (Empty rows, Japanese headers)
-const supplierHeaders = ["品名", "数量", "単価", "納期", "備考"];
-const supplierWs = XLSX.utils.aoa_to_sheet([supplierHeaders]);
-const supplierWb = XLSX.utils.book_new();
-XLSX.utils.book_append_sheet(supplierWb, supplierWs, "Order Form");
-XLSX.writeFile(supplierWb, path.join(__dirname, 'mock_supplier_template.xlsx'));
+// 1. Create Target Supplier Template with complex layout (Company Info, Header, Blank Data Row, Footer)
+const workbook = new ExcelJS.Workbook();
+const worksheet = workbook.addWorksheet('Purchase Order');
+
+// Add company info
+worksheet.addRow(["Huma Medical Production Co. Ltd", "", "", "PURCHASE ORDER"]);
+worksheet.addRow(["Your Health, Our Care", "", "", "DATE: 2024-01-19"]);
+worksheet.addRow([]); // empty spacing
+worksheet.addRow(["BILL TO", "", "SHIP TO"]);
+worksheet.addRow(["HSC JAPAN JOINT STOCK COMPANY", "", "HUMA MEDICAL HANOI"]);
+worksheet.addRow([]); // empty spacing
+
+// Add Table Headers (Row 7)
+const headerRow = worksheet.addRow(["No.", "Item Code", "Item name/Package", "Pkg", "Unit Price", "Quantity", "TOTAL"]);
+headerRow.font = { bold: true };
+headerRow.eachCell(c => c.border = { top: { style: 'thin' }, bottom: { style: 'thin' } });
+
+// Add Data Area (Row 8 - 1 empty sample row with formatting)
+const dataRow = worksheet.addRow(["", "", "", "", "", "", ""]);
+dataRow.eachCell(c => {
+    c.border = { left: { style: 'thin' }, right: { style: 'thin' }, bottom: { style: 'thin' } };
+});
+
+// Add Footer Area (Row 9-11)
+worksheet.addRow(["", "", "", "", "", "SUBTOTAL", "0"]);
+worksheet.addRow(["", "", "", "", "", "TAX", "0"]);
+const totalRow = worksheet.addRow(["", "", "", "", "", "TOTAL", "0"]);
+totalRow.font = { bold: true };
+
+await workbook.xlsx.writeFile(path.join(__dirname, 'mock_supplier_template.xlsx'));
 
 // 2. Create Source Customer Data (English headers, some data)
 const customerData = [
