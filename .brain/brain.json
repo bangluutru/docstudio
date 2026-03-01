@@ -2,13 +2,13 @@
     "meta": {
         "schema_version": "1.1.0",
         "awf_version": "4.0.0",
-        "last_updated": "2026-03-02T06:29:00+09:00"
+        "last_updated": "2026-03-02T06:45:00+09:00"
     },
     "project": {
         "name": "DocStudio",
         "type": "web-app",
         "status": "active",
-        "description": "Bộ công cụ xử lý tài liệu đa ngôn ngữ (VN/EN/JP): tạo chứng chỉ, dịch văn bản pháp lý, xử lý PDF, template overlay, Excel mapping",
+        "description": "Bộ công cụ xử lý tài liệu đa ngôn ngữ (VN/EN/JP): tạo chứng chỉ, dịch văn bản pháp lý, xử lý PDF, template overlay, Excel mapping, user guide",
         "repo": "https://github.com/bangluutru/docstudio.git",
         "deploy": "Cloudflare Pages"
     },
@@ -52,15 +52,16 @@
                 "id": 1,
                 "name": "Certificate Pages",
                 "key": "certificate",
+                "icon": "Award + 🏅",
                 "file": "src/App.jsx (inline)",
                 "components": [
-                    "src/components/PageCard.jsx",
-                    "src/components/CertificatePage.jsx",
-                    "src/components/PageNavigator.jsx",
-                    "src/components/ContentLines.jsx",
-                    "src/components/OverflowWarning.jsx",
-                    "src/components/DeletePageBtn.jsx",
-                    "src/components/UndoToast.jsx"
+                    "PageCard.jsx",
+                    "CertificatePage.jsx",
+                    "PageNavigator.jsx",
+                    "ContentLines.jsx",
+                    "OverflowWarning.jsx",
+                    "DeletePageBtn.jsx",
+                    "UndoToast.jsx"
                 ],
                 "description": "Tạo phiếu chứng chỉ/kiểm nghiệm từ JSON, đa ngôn ngữ, SVG stamps, multi-page",
                 "status": "stable"
@@ -69,46 +70,60 @@
                 "id": 2,
                 "name": "Legal Documents",
                 "key": "legal",
+                "icon": "Scale + ⚖️",
                 "file": "src/components/LegalDocumentView.jsx",
-                "description": "Hiển thị/chỉnh sửa văn bản pháp lý, Markdown rendering, citation stripping",
+                "description": "Dịch thuật văn bản pháp lý, Markdown rendering, citation stripping",
                 "status": "stable"
             },
             {
                 "id": 3,
                 "name": "PDF Splitter",
                 "key": "pdf-split",
+                "icon": "Scissors + ✂️",
                 "file": "src/components/PdfSplitterView.jsx",
-                "description": "Upload PDF → preview từng trang → chọn trang → tải riêng lẻ hoặc ghép",
+                "description": "Tách trang PDF, chọn trang, tải riêng/ghép",
                 "status": "stable"
             },
             {
                 "id": 4,
                 "name": "PDF Merger",
                 "key": "pdf-merge",
+                "icon": "Combine + 📂",
                 "file": "src/components/PdfMergerView.jsx",
-                "description": "Upload nhiều file PDF → sắp xếp → ghép thành 1 file",
+                "description": "Ghép nhiều file PDF thành 1 file, drag & drop reorder",
                 "status": "stable"
             },
             {
                 "id": 5,
                 "name": "Template Overlay",
                 "key": "pdf-overlay",
+                "icon": "Printer + 🖨️",
                 "file": "src/components/TemplateOverlayView.jsx",
-                "description": "HTML template + JSON data → render preview động → in PDF. Có PromptHelper để nhờ AI tái tạo phiếu",
+                "description": "HTML template + JSON data → render preview → in PDF",
                 "status": "stable"
             },
             {
                 "id": 6,
                 "name": "Excel Mapping",
                 "key": "excelMapping",
+                "icon": "FileSpreadsheet + 📊",
                 "file": "src/components/ExcelMappingView.jsx",
-                "description": "Map đơn hàng khách ↔ mẫu NCC, auto-map, 3-zone edit, formula edit, profile save, export xlsx",
+                "description": "Map đơn hàng khách ↔ mẫu NCC, auto-map, 3-zone edit, formula edit, profile, export",
+                "status": "stable"
+            },
+            {
+                "id": 7,
+                "name": "User Guide",
+                "key": "guide",
+                "icon": "BookOpen + 📖",
+                "file": "src/components/UserGuideView.jsx",
+                "description": "Hướng dẫn sử dụng đa ngôn ngữ cho cả 6 tab, accordion UI",
                 "status": "stable"
             }
         ],
         "shared_components": {
-            "PromptHelper": "src/components/PromptHelper.jsx — Collapsible copy-to-clipboard panel for system prompts",
-            "ZoneEditor": "src/components/ZoneEditor.jsx — Editable zone display for Excel header/footer"
+            "PromptHelper": "src/components/PromptHelper.jsx — Copy-to-clipboard system prompt panel",
+            "ZoneEditor": "src/components/ZoneEditor.jsx — Editable zone for Excel header/footer"
         },
         "key_files": {
             "app_entry": "src/App.jsx",
@@ -120,79 +135,24 @@
             "print_styles": "src/print.css"
         }
     },
-    "features": {
-        "tab1_certificate": {
-            "description": "Tạo phiếu chứng chỉ/kiểm nghiệm từ JSON data",
-            "capabilities": [
-                "Multi-page with navigator",
-                "SVG stamp positioning (coordinate-based)",
-                "Undo delete with toast",
-                "Overflow warning",
-                "Edit/Preview toggle",
-                "i18n: VN/EN/JP",
-                "Auto-save to localStorage",
-                "PromptHelper for Gemini JSON generation"
-            ]
-        },
-        "tab2_legal": {
-            "description": "Dịch thuật và hiển thị văn bản pháp lý",
-            "capabilities": [
-                "Markdown rendering (react-markdown + GFM)",
-                "Citation stripping from Gemini output",
-                "Edit in-place",
-                "Print/PDF export",
-                "i18n: VN/EN/JP",
-                "Batch mode for long documents",
-                "PromptHelper for Gemini JSON generation"
-            ]
-        },
-        "tab6_excel_mapping": {
-            "description": "Upload đơn hàng khách + mẫu NCC → auto-map → xuất Excel",
-            "architecture": {
-                "3_zone_model": "Header zone | Data zone | Footer zone",
-                "zone_editor": "ZoneEditor.jsx - standalone component with row numbers",
-                "export_engine": "ExcelJS: Save→Unmerge→Splice→Clear→Write→Re-merge LAST"
-            },
-            "capabilities": [
-                "Auto-map fields (keyword matching)",
-                "Merge-aware column mapping",
-                "Formula display and direct editing",
-                "Excel row numbers in product table",
-                "Profile save/load (with template persistence)",
-                "Single-sheet export (no extra template sheet)",
-                "Formula-aware footer zone edits"
-            ],
-            "resolved_issues": [
-                "ZoneEditor auto-collapse → tách file riêng",
-                "Merge cell data placement → merge-aware column mapping",
-                "Extra template sheet → removed during export",
-                "Formula [object Object] → extractCellDisplayValue helper",
-                "Formula range adjustment → user manual control via ZoneEditor",
-                "Profile instant export → template state persistence",
-                "xlsx-template crash → removed, ExcelJS-only engine"
-            ]
-        }
-    },
     "knowledge_items": {
         "patterns": [
             "ExcelJS merge: unmerge TRƯỚC spliceRows, re-merge SAU write data",
-            "ExcelJS cell.value can be object: {formula, sharedFormula, richText, error, Date} → use extractCellDisplayValue",
-            "React component identity: inline definition → remount → mất state",
-            "Vite: Node.js-only libs crash runtime trong browser",
-            "PromptHelper pattern: collapsible panel + copy-to-clipboard for system prompts"
+            "ExcelJS cell.value → extractCellDisplayValue handles all object types",
+            "PromptHelper: shared component for system prompt copy-to-clipboard",
+            "Trilingual guide: same data structure for VN/EN/JP with accordion UI"
         ],
         "gotchas": [
-            "xlsx-template KHÔNG chạy trong browser (fs/path/stream imports)",
-            "ExcelJS sharedFormula corrupt sau spliceRows",
-            "ExcelJS ws._merges vs ws.model.merges: check cả 2",
-            "String(formulaObject) = '[object Object]' → phải extract .formula",
+            "xlsx-template KHÔNG chạy trong browser",
+            "String(formulaObject) = '[object Object]' → extract .formula",
             "Saved profiles cache old zone data → sanitize on load",
             "Formula auto-adjustment too fragile → give user manual control"
         ],
         "conventions": [
-            "System prompts stored in src/utils/prompts.js as exported constants",
-            "Shared components in src/components/ (PromptHelper, ZoneEditor)",
-            "Tab-specific views as self-contained components with own translations"
+            "System prompts in src/utils/prompts.js as exported constants",
+            "Shared components: PromptHelper, ZoneEditor",
+            "Tab views are self-contained with own translations",
+            "Tab icons: Lucide icon + emoji fallback when collapsed"
         ]
     }
 }
