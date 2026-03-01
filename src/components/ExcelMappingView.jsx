@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     FileSpreadsheet, Upload, Download, Sparkles, Plus,
-    Trash2, ChevronDown, ChevronUp, AlertCircle, Save, Edit3
+    Trash2, ChevronDown, ChevronUp, AlertCircle, Save
 } from 'lucide-react';
 import { readExcelFile, autoMapFields, exportMappedExcel } from '../utils/excel';
+import ZoneEditor from './ZoneEditor';
 
 export default function ExcelMappingView({ t: tProp, displayLang }) {
     const t = tProp || {};
@@ -126,8 +127,8 @@ export default function ExcelMappingView({ t: tProp, displayLang }) {
     };
 
     // --- Zone editing ---
-    const updateZoneCell = (zoneSetter, zone, rowIdx, colIdx, newValue) => {
-        const newZone = zone.map((row, ri) => {
+    const handleHeaderZoneChange = useCallback((rowIdx, colIdx, newValue) => {
+        setHeaderZone(prev => prev.map((row, ri) => {
             if (ri !== rowIdx) return row;
             return {
                 ...row,
@@ -136,9 +137,21 @@ export default function ExcelMappingView({ t: tProp, displayLang }) {
                     return { ...cell, value: newValue };
                 })
             };
-        });
-        zoneSetter(newZone);
-    };
+        }));
+    }, []);
+
+    const handleFooterZoneChange = useCallback((rowIdx, colIdx, newValue) => {
+        setFooterZone(prev => prev.map((row, ri) => {
+            if (ri !== rowIdx) return row;
+            return {
+                ...row,
+                cells: row.cells.map((cell, ci) => {
+                    if (ci !== colIdx) return cell;
+                    return { ...cell, value: newValue };
+                })
+            };
+        }));
+    }, []);
 
     // --- Profile management ---
     const saveProfile = () => {
@@ -196,119 +209,6 @@ export default function ExcelMappingView({ t: tProp, displayLang }) {
         auto: 'bg-green-100 text-green-800 border-green-200',
         manual: 'bg-amber-100 text-amber-800 border-amber-200',
         unmapped: 'bg-red-50 border-red-200 text-red-600 border-dashed'
-    };
-
-    // --- Helper: Filter zone rows that have at least 1 non-empty cell ---
-    const getVisibleZoneCells = (zone) => {
-        return zone.map((row, rowIdx) => {
-            const nonEmptyCells = row.cells.filter(c => c.value && c.value.trim() !== '');
-            return { rowIdx, cells: nonEmptyCells, original: row };
-        }).filter(r => r.cells.length > 0);
-    };
-
-    // --- Helper: Detect if a value is a date-like string ---
-    const isDateValue = (val) => {
-        if (!val || typeof val !== 'string') return false;
-        // Check for common date patterns
-        const datePatterns = [
-            /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i,
-            /\d{4}[-/]\d{1,2}[-/]\d{1,2}/,
-            /\d{1,2}[-/]\d{1,2}[-/]\d{4}/,
-            /\bdate\b/i
-        ];
-        return datePatterns.some(p => p.test(val));
-    };
-
-    // --- Helper: Convert date string to YYYY-MM-DD for input[type=date] ---
-    const toDateInputValue = (val) => {
-        try {
-            const d = new Date(val);
-            if (!isNaN(d.getTime())) {
-                return d.toISOString().split('T')[0];
-            }
-        } catch (e) { }
-        return '';
-    };
-
-    // --- Helper: Format date from YYYY-MM-DD back to display format ---
-    const fromDateInputValue = (dateStr) => {
-        try {
-            const d = new Date(dateStr + 'T00:00:00');
-            if (!isNaN(d.getTime())) {
-                return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-            }
-        } catch (e) { }
-        return dateStr;
-    };
-
-    // --- Zone Editor Component with Toggle & Date Picker ---
-    const ZoneEditor = ({ zone, zoneSetter, title, icon }) => {
-        const [isExpanded, setIsExpanded] = useState(false);
-        const visibleRows = getVisibleZoneCells(zone);
-        if (visibleRows.length === 0) return null;
-
-        return (
-            <div className="bg-slate-50 rounded-lg border border-slate-200 mb-3">
-                <div
-                    className="px-3 py-2 flex items-center gap-2 border-b border-slate-200 bg-slate-100 rounded-t-lg cursor-pointer hover:bg-slate-200 transition-colors"
-                    onClick={() => setIsExpanded(!isExpanded)}
-                >
-                    {icon}
-                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">{title}</span>
-                    <span className="text-[10px] text-slate-400 ml-1">({visibleRows.length} dòng)</span>
-                    <button
-                        className={`ml-auto p-1 rounded transition-colors ${isExpanded ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:text-indigo-500'}`}
-                        title={isExpanded ? 'Thu gọn' : 'Bấm để sửa'}
-                    >
-                        <Edit3 className="w-3.5 h-3.5" />
-                    </button>
-                </div>
-
-                {isExpanded && (
-                    <div className="p-2 space-y-1 max-h-[250px] overflow-y-auto">
-                        {visibleRows.map(({ rowIdx, cells }) => (
-                            <div key={rowIdx} className="flex flex-wrap gap-1">
-                                {cells.map((cell) => {
-                                    const originalCellIdx = zone[rowIdx].cells.findIndex(c => c.col === cell.col);
-                                    const isDate = isDateValue(cell.value);
-                                    const dateVal = isDate ? toDateInputValue(cell.value) : '';
-
-                                    return isDate && dateVal ? (
-                                        <input
-                                            key={cell.col}
-                                            type="date"
-                                            className="flex-1 min-w-[130px] max-w-[180px] text-xs px-2 py-1 border border-blue-200 rounded bg-blue-50 hover:border-blue-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-200 outline-none transition-colors"
-                                            value={dateVal}
-                                            title={cell.value}
-                                            onChange={(e) => {
-                                                const formatted = fromDateInputValue(e.target.value);
-                                                updateZoneCell(zoneSetter, zone, rowIdx, originalCellIdx, formatted);
-                                            }}
-                                        />
-                                    ) : (
-                                        <input
-                                            key={cell.col}
-                                            type="text"
-                                            className="flex-1 min-w-[80px] max-w-[200px] text-xs px-2 py-1 border border-slate-200 rounded bg-white hover:border-indigo-300 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 outline-none transition-colors truncate"
-                                            value={cell.value}
-                                            title={cell.value}
-                                            onChange={(e) => updateZoneCell(zoneSetter, zone, rowIdx, originalCellIdx, e.target.value)}
-                                        />
-                                    );
-                                })}
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                {!isExpanded && (
-                    <div className="px-3 py-1.5 text-[11px] text-slate-500 truncate">
-                        {visibleRows.slice(0, 2).map(r => r.cells.map(c => c.value).filter(Boolean).join(' | ')).join(' • ')}
-                        {visibleRows.length > 2 && ' ...'}
-                    </div>
-                )}
-            </div>
-        );
     };
 
     // --- UI RENDER ---
@@ -442,7 +342,7 @@ export default function ExcelMappingView({ t: tProp, displayLang }) {
                                     {/* ZONE 1: Editable Header */}
                                     <ZoneEditor
                                         zone={headerZone}
-                                        zoneSetter={setHeaderZone}
+                                        onCellChange={handleHeaderZoneChange}
                                         title="Thông tin đầu mẫu (Header)"
                                         icon={<ChevronUp className="w-3 h-3 text-blue-500" />}
                                     />
@@ -493,7 +393,7 @@ export default function ExcelMappingView({ t: tProp, displayLang }) {
                                     {/* ZONE 3: Editable Footer */}
                                     <ZoneEditor
                                         zone={footerZone}
-                                        zoneSetter={setFooterZone}
+                                        onCellChange={handleFooterZoneChange}
                                         title="Thông tin cuối mẫu (Footer)"
                                         icon={<ChevronDown className="w-3 h-3 text-orange-500" />}
                                     />

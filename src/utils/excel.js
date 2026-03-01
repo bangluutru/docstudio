@@ -388,20 +388,44 @@ export const exportMappedExcel = async ({
         ws.spliceRows(dataStartRow + neededRows, Math.abs(diff));
     }
 
-    // 6. Re-apply merges with adjusted row offsets
+    // 6. Clear all data cells and apply base style
+    for (let i = 0; i < neededRows; i++) {
+        const row = ws.getRow(dataStartRow + i);
+        for (let c = 1; c <= maxCol; c++) {
+            const cell = row.getCell(c);
+            cell.value = null;
+            try { cell.style = baseDataRowStyles[c]; } catch (e) { }
+        }
+    }
+
+    // 7. Write mapped data
+    sourceAllRows.forEach((sourceRow, index) => {
+        const row = ws.getRow(dataStartRow + index);
+        mappingRules.forEach(rule => {
+            if (rule.sourceCol && rule.targetCol && colMap[rule.targetCol]) {
+                const colNum = colMap[rule.targetCol];
+                const val = sourceRow[rule.sourceCol];
+                if (val !== undefined && val !== '') {
+                    row.getCell(colNum).value = val;
+                }
+            }
+        });
+        row.commit();
+    });
+
+    // 8. Re-apply merges AFTER all data is written (critical order!)
     // Extract data zone merge PATTERNS (relative to the first data row)
     const dataZoneMergePatterns = savedMerges
         .filter(m => m.zone === 'data')
         .map(m => ({
-            rowOffset: m.top - dataStartRow, // relative row within a single data row
+            rowOffset: m.top - dataStartRow,
             left: m.left,
             right: m.right,
-            bottomOffset: m.bottom - m.top // how many rows the merge spans
+            bottomOffset: m.bottom - m.top
         }))
-        // Keep only single-row merges (column-spanning merges within one data row)
-        .filter(p => p.bottomOffset === 0);
+        .filter(p => p.bottomOffset === 0); // single-row column merges only
 
-    // Re-apply footer merges
+    // Re-apply footer merges (shifted by diff)
     savedMerges.forEach(m => {
         if (m.zone === 'footer') {
             const newTop = m.top + diff;
@@ -417,37 +441,12 @@ export const exportMappedExcel = async ({
     for (let i = 0; i < neededRows; i++) {
         const currentRowNum = dataStartRow + i;
         dataZoneMergePatterns.forEach(pattern => {
-            if (pattern.rowOffset === 0) { // only apply patterns from the first template data row
+            if (pattern.rowOffset === 0) {
                 const ref = makeMergeRef(currentRowNum, pattern.left, currentRowNum, pattern.right);
                 try { ws.mergeCells(ref); } catch (e) { }
             }
         });
     }
-
-    // 7. Clear all data cells and apply base style
-    for (let i = 0; i < neededRows; i++) {
-        const row = ws.getRow(dataStartRow + i);
-        for (let c = 1; c <= maxCol; c++) {
-            const cell = row.getCell(c);
-            cell.value = null;
-            try { cell.style = baseDataRowStyles[c]; } catch (e) { }
-        }
-    }
-
-    // 8. Write mapped data
-    sourceAllRows.forEach((sourceRow, index) => {
-        const row = ws.getRow(dataStartRow + index);
-        mappingRules.forEach(rule => {
-            if (rule.sourceCol && rule.targetCol && colMap[rule.targetCol]) {
-                const colNum = colMap[rule.targetCol];
-                const val = sourceRow[rule.sourceCol];
-                if (val !== undefined && val !== '') {
-                    row.getCell(colNum).value = val;
-                }
-            }
-        });
-        row.commit();
-    });
 
     // 9. Apply user edits to Zone 1 (Header)
     if (headerZone && headerZone.length > 0) {
