@@ -1,6 +1,5 @@
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
-import XlsxTemplate from 'xlsx-template';
 
 // =====================================================================
 // Constants
@@ -69,7 +68,6 @@ const findHeaderRow = (jsonData) => {
     return bestIndex;
 };
 
-// Find footer start row in ExcelJS worksheet (1-indexed)
 const findFooterStartInWorksheet = (ejsWs, headerRowNum) => {
     for (let r = headerRowNum + 1; r <= ejsWs.rowCount; r++) {
         const row = ejsWs.getRow(r);
@@ -106,7 +104,6 @@ export const readExcelFile = async (file, isSource = true) => {
                 const headers = rawHeaders.filter(h => h !== '');
 
                 if (isSource) {
-                    // ===== SOURCE: Parse product data, stop at footer =====
                     const dataRows = [];
                     for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
                         const row = jsonData[i];
@@ -124,18 +121,15 @@ export const readExcelFile = async (file, isSource = true) => {
                     }
                     resolve({ headers, sampleRows: dataRows, allRows: dataRows });
                 } else {
-                    // ===== TARGET TEMPLATE: Extract zone info for UI display =====
                     const ejsWb = new ExcelJS.Workbook();
                     await ejsWb.xlsx.load(data);
                     const ejsWs = ejsWb.worksheets[0];
-                    const headerRowNum = headerRowIndex + 1; // ExcelJS is 1-indexed
+                    const headerRowNum = headerRowIndex + 1;
                     const colCount = ejsWs.columnCount || 20;
 
-                    // Find footer
                     const footerStartRow = findFooterStartInWorksheet(ejsWs, headerRowNum);
                     const existingDataSlots = footerStartRow - headerRowNum - 1;
 
-                    // --- Zone 1: Header (for UI display/editing) ---
                     const headerZone = [];
                     for (let r = 1; r < headerRowNum; r++) {
                         const row = ejsWs.getRow(r);
@@ -150,7 +144,6 @@ export const readExcelFile = async (file, isSource = true) => {
                         headerZone.push({ rowNum: r, cells });
                     }
 
-                    // --- Zone 3: Footer (for UI display/editing) ---
                     const footerZone = [];
                     for (let r = footerStartRow; r <= ejsWs.rowCount; r++) {
                         const row = ejsWs.getRow(r);
@@ -166,14 +159,9 @@ export const readExcelFile = async (file, isSource = true) => {
                     }
 
                     resolve({
-                        headers,
-                        headerRowIndex,
-                        rawBuffer: data,
-                        headerZone,
-                        footerZone,
-                        footerStartRow,
-                        existingDataSlots,
-                        colCount
+                        headers, headerRowIndex, rawBuffer: data,
+                        headerZone, footerZone, footerStartRow,
+                        existingDataSlots, colCount
                     });
                 }
             } catch (error) {
@@ -187,7 +175,7 @@ export const readExcelFile = async (file, isSource = true) => {
 };
 
 // =====================================================================
-// 2. Heuristics Auto-Mapping (Offline / Privacy-First)
+// 2. Heuristics Auto-Mapping
 // =====================================================================
 const mappingDict = {
     'name': ['name', 'product', 'item', 'item name', 'package', 'item name/package',
@@ -203,9 +191,8 @@ const mappingDict = {
     'unit': ['unit', 'đơn vị', '単位']
 };
 
-const normalize = (str) => {
-    return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
-};
+const normalize = (str) =>
+    str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
 
 const categorize = (header) => {
     const headerLower = header.toLowerCase().trim();
@@ -252,155 +239,180 @@ export const autoMapFields = (sourceHeaders, targetHeaders) => {
 };
 
 // =====================================================================
-// 3. Export: HYBRID approach (Auto-Tagging + xlsx-template)
-//    Step 1: ExcelJS auto-tags template's first data row
-//    Step 2: xlsx-template clones rows with perfect formatting
-//    Step 3: ExcelJS re-applies zone edits
+// 3. Export: ExcelJS Engine with Merge Protection
+//    Order: Save → Unmerge → Splice → Clear → Write → Re-merge LAST
 // =====================================================================
 
+const colLetterToNum = (letters) => {
+    let n = 0;
+    for (let i = 0; i < letters.length; i++) {
+        n = n * 26 + (letters.charCodeAt(i) - 64);
+    }
+    return n;
+};
+
+const colNumToLetter = (num) => {
+    let s = '';
+    while (num > 0) {
+        const rem = (num - 1) % 26;
+        s = String.fromCharCode(65 + rem) + s;
+        num = Math.floor((num - 1) / 26);
+    }
+    return s;
+};
+
+const makeMergeRef = (top, left, bottom, right) =>
+    `${colNumToLetter(left)}${top}:${colNumToLetter(right)}${bottom}`;
+
+const parseMerge = (ref) => {
+    if (typeof ref === 'string') {
+        const m = ref.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/i);
+        if (!m) return null;
+        return { top: +m[2], left: colLetterToNum(m[1]), bottom: +m[4], right: colLetterToNum(m[3]) };
+    }
+    if (ref?.model) ref = ref.model;
+    return ref?.top !== undefined ? ref : null;
+};
+
+const collectAllMerges = (ws) => {
+    const refs = [];
+    if (ws.model?.merges) refs.push(...ws.model.merges);
+    if (ws._merges) {
+        Object.keys(ws._merges).forEach(key => {
+            const r = ws._merges[key];
+            const s = typeof r === 'string' ? r : (r.model || r.range || key);
+            if (typeof s === 'string' && !refs.includes(s)) refs.push(s);
+        });
+    }
+    return refs;
+};
 
 export const exportMappedExcel = async ({
-    sourceAllRows,
-    mappingRules,
-    targetBuffer,
-    headerRowIndex,
-    headerZone,
-    footerZone,
-    footerStartRow,
-    existingDataSlots,
+    sourceAllRows, mappingRules, targetBuffer, headerRowIndex,
+    headerZone, footerZone, footerStartRow, existingDataSlots,
     fileName = 'Mapped_Order.xlsx'
 }) => {
-    // ── Step 1: Auto-tag the template using ExcelJS ──────────────────
-
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(targetBuffer);
     const ws = workbook.worksheets[0];
 
-    const headerRowNum = headerRowIndex + 1; // ExcelJS is 1-indexed
+    const headerRowNum = headerRowIndex + 1;
     const dataStartRow = headerRowNum + 1;
+    const neededRows = sourceAllRows.length;
+    const diff = neededRows - existingDataSlots;
+    const maxCol = ws.columnCount || 20;
 
-    // Build column map: headerName → colNumber
+    // 1. Column map
     const colMap = {};
-    const hdrRow = ws.getRow(headerRowNum);
-    hdrRow.eachCell((cell, colNumber) => {
-        const val = String(cell.value || '').trim();
-        if (val) colMap[val] = colNumber;
+    ws.getRow(headerRowNum).eachCell((cell, cn) => {
+        const v = String(cell.value || '').trim();
+        if (v) colMap[v] = cn;
     });
 
-    // Build reverse mapping: for each target column that has a mapping rule,
-    // create a unique property key for the xlsx-template tag
-    const tagMap = {}; // colNumber → { propKey, sourceCol }
-    mappingRules.forEach((rule, idx) => {
-        if (rule.sourceCol && rule.targetCol && colMap[rule.targetCol]) {
-            const colNum = colMap[rule.targetCol];
-            // Create a safe property name (alphanumeric + underscore)
-            const propKey = `f${idx}_${rule.targetCol.replace(/[^a-zA-Z0-9]/g, '_')}`;
-            tagMap[colNum] = { propKey, sourceCol: rule.sourceCol };
-        }
-    });
-
-    // Write tags into the FIRST data row
-    const firstDataRow = ws.getRow(dataStartRow);
-    Object.entries(tagMap).forEach(([colNumStr, { propKey }]) => {
-        const colNum = parseInt(colNumStr);
-        const cell = firstDataRow.getCell(colNum);
-        cell.value = `\${table:data.${propKey}}`;
-    });
-    firstDataRow.commit();
-
-    // Remove extra existing data rows (keep only the tagged row)
-    // We need to remove rows from dataStartRow+1 to footerStartRow-1
-    if (existingDataSlots > 1) {
-        // spliceRows(startRow, count) removes 'count' rows starting at 'startRow'
-        ws.spliceRows(dataStartRow + 1, existingDataSlots - 1);
+    // 2. Base styles
+    const baseStyles = {};
+    for (let c = 1; c <= maxCol; c++) {
+        try { baseStyles[c] = JSON.parse(JSON.stringify(ws.getRow(dataStartRow).getCell(c).style || {})); }
+        catch (e) { baseStyles[c] = {}; }
     }
 
-    // Apply user edits to Zone 1 (Header) BEFORE generating tagged buffer
-    if (headerZone && headerZone.length > 0) {
-        headerZone.forEach(zoneRow => {
-            const row = ws.getRow(zoneRow.rowNum);
-            zoneRow.cells.forEach(cellData => {
-                const existingCell = row.getCell(cellData.col);
-                const existingVal = existingCell.value !== null && existingCell.value !== undefined
-                    ? String(existingCell.value) : '';
-                if (cellData.value !== existingVal && cellData.value.trim() !== '') {
-                    existingCell.value = cellData.value;
-                }
+    // 3. Save merges in data/footer zones
+    const saved = [];
+    collectAllMerges(ws).forEach(ref => {
+        const m = parseMerge(ref);
+        if (!m || m.top < dataStartRow) return;
+        saved.push({ ...m, zone: m.top >= footerStartRow ? 'footer' : 'data' });
+    });
+
+    // 4. Unmerge all
+    saved.forEach(m => {
+        try { ws.unMergeCells(makeMergeRef(m.top, m.left, m.bottom, m.right)); } catch (e) { }
+    });
+
+    // 5. Splice
+    if (diff > 0) ws.spliceRows(dataStartRow + existingDataSlots, 0, ...new Array(diff).fill([]));
+    else if (diff < 0) ws.spliceRows(dataStartRow + neededRows, Math.abs(diff));
+
+    // 6. Clear + style
+    for (let i = 0; i < neededRows; i++) {
+        const row = ws.getRow(dataStartRow + i);
+        for (let c = 1; c <= maxCol; c++) {
+            row.getCell(c).value = null;
+            try { row.getCell(c).style = baseStyles[c]; } catch (e) { }
+        }
+    }
+
+    // 7. Write data
+    sourceAllRows.forEach((src, idx) => {
+        const row = ws.getRow(dataStartRow + idx);
+        mappingRules.forEach(rule => {
+            if (rule.sourceCol && rule.targetCol && colMap[rule.targetCol]) {
+                const val = src[rule.sourceCol];
+                if (val !== undefined && val !== '') row.getCell(colMap[rule.targetCol]).value = val;
+            }
+        });
+        row.commit();
+    });
+
+    // 8. Re-merge LAST
+    // 8a. Data patterns (from first template data row only, single-row merges)
+    const patterns = saved
+        .filter(m => m.zone === 'data' && m.top === dataStartRow && m.bottom === m.top)
+        .map(m => ({ left: m.left, right: m.right }));
+
+    for (let i = 0; i < neededRows; i++) {
+        const r = dataStartRow + i;
+        patterns.forEach(p => { try { ws.mergeCells(makeMergeRef(r, p.left, r, p.right)); } catch (e) { } });
+    }
+
+    // 8b. Footer merges shifted by diff
+    saved.filter(m => m.zone === 'footer').forEach(m => {
+        const t = m.top + diff, b = m.bottom + diff;
+        if (t > 0 && b > 0) { try { ws.mergeCells(makeMergeRef(t, m.left, b, m.right)); } catch (e) { } }
+    });
+
+    // 9. Header zone edits
+    if (headerZone?.length > 0) {
+        headerZone.forEach(zr => {
+            const row = ws.getRow(zr.rowNum);
+            zr.cells.forEach(cd => {
+                const ex = String(row.getCell(cd.col).value ?? '');
+                if (cd.value !== ex && cd.value.trim()) row.getCell(cd.col).value = cd.value;
             });
         });
     }
 
-    // Apply user edits to Zone 3 (Footer)
-    // After removing extra data rows, footer shifted up
-    const footerShift = existingDataSlots > 1 ? -(existingDataSlots - 1) : 0;
-    if (footerZone && footerZone.length > 0) {
-        footerZone.forEach(zoneRow => {
-            const newRowNum = zoneRow.rowNum + footerShift;
-            if (newRowNum > 0) {
-                const row = ws.getRow(newRowNum);
-                zoneRow.cells.forEach(cellData => {
-                    const existingCell = row.getCell(cellData.col);
-                    const existingVal = existingCell.value !== null && existingCell.value !== undefined
-                        ? String(existingCell.value) : '';
-                    if (cellData.value !== existingVal && cellData.value.trim() !== '') {
-                        existingCell.value = cellData.value;
-                    }
+    // 10. Footer zone edits
+    if (footerZone?.length > 0) {
+        footerZone.forEach(zr => {
+            const nr = zr.rowNum + diff;
+            if (nr > 0) {
+                const row = ws.getRow(nr);
+                zr.cells.forEach(cd => {
+                    const ex = String(row.getCell(cd.col).value ?? '');
+                    if (cd.value !== ex && cd.value.trim()) row.getCell(cd.col).value = cd.value;
                 });
             }
         });
     }
 
-    // Fix shared formula corruption before writing
-    ws.eachRow((row) => {
-        row.eachCell((cell) => {
+    // 11. Fix shared formulas
+    ws.eachRow(row => {
+        row.eachCell(cell => {
             const v = cell.value;
             if (v && typeof v === 'object' && v.sharedFormula !== undefined) {
-                if (v.formula) {
-                    cell.value = { formula: v.formula, result: v.result };
-                } else {
-                    cell.value = v.result !== undefined ? v.result : '';
-                }
+                cell.value = v.formula ? { formula: v.formula, result: v.result } : (v.result ?? '');
             }
         });
     });
 
-    // Generate the tagged template buffer
-    const taggedBuffer = await workbook.xlsx.writeBuffer();
-
-    // ── Step 2: Use xlsx-template to substitute data ─────────────────
-
-    // Build the data array for xlsx-template
-    const dataArray = sourceAllRows.map(sourceRow => {
-        const obj = {};
-        Object.values(tagMap).forEach(({ propKey, sourceCol }) => {
-            const val = sourceRow[sourceCol];
-            obj[propKey] = val !== undefined && val !== '' ? val : '';
-        });
-        return obj;
-    });
-
-    // Create xlsx-template instance and substitute
-    const template = new XlsxTemplate(taggedBuffer, {
-        moveImages: true,
-        subsituteAllTableRow: true,
-        pushDownPageBreakOnTableSubstitution: true
-    });
-
-    template.substitute(1, { data: dataArray });
-
-    // Generate final output
-    const finalBuffer = template.generate({ type: 'uint8array' });
-
-    // ── Step 3: Download ─────────────────────────────────────────────
-
-    const blob = new Blob([finalBuffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    });
+    // 12. Download
+    const buf = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = window.URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = fileName;
-    anchor.click();
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.click();
     window.URL.revokeObjectURL(url);
 };
-
