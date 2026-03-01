@@ -1,65 +1,119 @@
 {
     "meta": {
         "schema_version": "1.1.0",
-        "awf_version": "4.0.0"
+        "awf_version": "4.0.0",
+        "last_updated": "2026-03-01T16:32:00+09:00"
     },
     "project": {
         "name": "DocStudio",
-        "type": "Web Application (React/Vite)",
-        "status": "Active Development"
+        "type": "web-app",
+        "status": "active",
+        "description": "Bộ công cụ xử lý tài liệu: tạo PO từ prompt AI, xử lý PDF, chỉnh sửa hình ảnh, tạo HTML builder, match file Excel",
+        "repo": "https://github.com/bangluutru/docstudio.git",
+        "deploy": "Cloudflare Pages"
     },
     "tech_stack": {
         "frontend": {
-            "framework": "React 19 + Vite",
-            "styling": "Tailwind CSS",
-            "icons": "Lucide React",
-            "dnd": "dnd-kit"
+            "framework": "React 19",
+            "bundler": "Vite 7.3",
+            "styling": "Vanilla CSS + Inline styles",
+            "icons": "lucide-react"
         },
-        "backend": {},
-        "database": {}
-    },
-    "database_schema": {
-        "tables": [],
-        "relationships": [],
-        "summary": "App hiện tại xử lý dữ liệu JSON truyền vào từ ngoài, chưa kết nối DB trực tiếp."
-    },
-    "api_endpoints": [],
-    "business_rules": [
-        "Render documents with 1:1 fidelity for printing/PDF export (In chuẩn như bản mẫu).",
-        "Support multi-language content on certificates (Vietnamese, English, Japanese).",
-        "Precise positioning for SVG stamps and elements (Các con dấu phải nằm đúng tọa độ tuyệt đối)."
-    ],
-    "features": [
-        "Certificate Rendering: Hiển thị chứng chỉ đa ngôn ngữ với các thông số tùy biến.",
-        "Analysis Report Rendering: Render trang báo cáo phân tích chi tiết.",
-        "Drag and Drop Content Management: Sắp xếp các thành phần tài liệu.",
-        "Dynamic HTML Builder (Tab 5): Hệ thống tạo form in A4 linh hoạt qua chèn code HTML từ AI, tự động map biến `{{...}}` với JSON đa ngôn ngữ."
-    ],
-    "upcoming_features": [
-        {
-            "name": "Excel Order Form Mapping",
-            "description": "Tự động khớp thông tin từ file đặt hàng khách hàng (Excel) vào file đặt hàng nhà cung cấp (Excel) khi 2 mẫu khác nhau.",
-            "solutions_researched": [
-                "1. Rule-Based Template Mapping: Cấu hình mapping thủ công từng khách hàng, lưu profile. Chính xác 100%, nhanh, không tốn API.",
-                "2. AI Semantic Mapping: Gửi header + sample rows cho Gemini để tự đoán mapping. Linh hoạt nhưng tốn API và có rủi ro nhầm.",
-                "3. Hybrid (KHUYẾN NGHỊ): AI đề xuất mapping lần đầu → user duyệt/sửa → lưu thành Rules cứng cho lần sau. Tối ưu cả tốc độ lẫn độ chính xác."
+        "libraries": {
+            "excel": [
+                "exceljs (read/write xlsx)",
+                "xlsx (SheetJS - parsing)"
             ],
-            "status": "researched_not_implemented"
+            "pdf": [
+                "pdf-lib (create/edit PDF)",
+                "pdfjs-dist (render PDF)"
+            ],
+            "drag_drop": [
+                "@dnd-kit/core",
+                "@dnd-kit/sortable"
+            ],
+            "other": [
+                "react-dom",
+                "react-colorful"
+            ]
+        },
+        "deployment": {
+            "hosting": "Cloudflare Pages",
+            "ci_cd": "GitHub → Cloudflare auto-deploy on push to main"
         }
-    ],
+    },
+    "architecture": {
+        "tabs": [
+            {
+                "id": 1,
+                "name": "PO Generator",
+                "file": "src/components/ExcelCreatorView.jsx",
+                "status": "stable"
+            },
+            {
+                "id": 2,
+                "name": "PDF Toolkit",
+                "file": "src/components/PdfToolkitView.jsx",
+                "status": "stable"
+            },
+            {
+                "id": 3,
+                "name": "Image Editor",
+                "file": "src/components/ImageEditorView.jsx",
+                "status": "stable"
+            },
+            {
+                "id": 4,
+                "name": "Doc Overlay",
+                "file": "src/components/DocOverlayView.jsx",
+                "status": "stable"
+            },
+            {
+                "id": 5,
+                "name": "HTML Builder",
+                "file": "src/components/HtmlBuilderView.jsx",
+                "status": "stable"
+            },
+            {
+                "id": 6,
+                "name": "Excel Mapping",
+                "file": "src/components/ExcelMappingView.jsx",
+                "status": "active-development"
+            }
+        ],
+        "key_files": {
+            "app_entry": "src/App.jsx",
+            "excel_utils": "src/utils/excel.js",
+            "zone_editor": "src/components/ZoneEditor.jsx",
+            "styles": "src/index.css"
+        }
+    },
+    "features": {
+        "tab6_excel_mapping": {
+            "description": "Upload file đơn hàng khách + mẫu NCC → auto-map fields → xuất file Excel theo mẫu NCC",
+            "architecture": {
+                "3_zone_model": "Header zone | Data zone | Footer zone",
+                "zone_editor": "ZoneEditor.jsx - standalone component",
+                "export_engine": "ExcelJS engine: Save→Unmerge→Splice→Clear→Write→Re-merge LAST"
+            },
+            "resolved_issues": [
+                "ZoneEditor auto-collapse → tách file riêng",
+                "Date picker → ISO format",
+                "Merge cell vỡ → reorder operations",
+                "xlsx-template crash → Node.js-only, đã gỡ"
+            ]
+        }
+    },
     "knowledge_items": {
         "patterns": [
-            "SVG-in-table-cell rendering",
-            "Coordinate-based stamp positioning",
-            "Client-side CSS Print scaling (`contentScale` + Zoom) để nhét vừa khổ A4 mà không vỡ bảng do text dài",
-            "Regex-based HTML auto-clippers (Gọt Chiều Cao, Ép Khoảng Trắng) để dọn dẹp Tailwind code từ AI"
+            "ExcelJS merge: unmerge TRƯỚC spliceRows, re-merge SAU write data",
+            "React component identity: inline definition → remount → mất state",
+            "Vite: Node.js-only libs crash runtime trong browser"
         ],
         "gotchas": [
-            "Watch out for page overflow when content exceeds page limits (Chú ý lỗi tràn trang khi in)",
-            "Không để AI sinh CSS ép cứng chiều cao (như h-64, min-h-[...]) vì sẽ làm layout không co giãn được khi text thay đổi"
-        ],
-        "conventions": [
-            "Tất cả text trên form mẫu do AI sinh phải bọc trong biến (vd: `{{label_name}}`) để đảm bảo chuyển ngữ đổi 100% được bản dịch."
+            "xlsx-template KHÔNG chạy trong browser",
+            "ExcelJS sharedFormula corrupt sau spliceRows",
+            "ExcelJS ws._merges vs ws.model.merges: check cả 2"
         ]
     }
 }
