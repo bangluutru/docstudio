@@ -389,22 +389,40 @@ export const exportMappedExcel = async ({
     }
 
     // 6. Re-apply merges with adjusted row offsets
+    // Extract data zone merge PATTERNS (relative to the first data row)
+    const dataZoneMergePatterns = savedMerges
+        .filter(m => m.zone === 'data')
+        .map(m => ({
+            rowOffset: m.top - dataStartRow, // relative row within a single data row
+            left: m.left,
+            right: m.right,
+            bottomOffset: m.bottom - m.top // how many rows the merge spans
+        }))
+        // Keep only single-row merges (column-spanning merges within one data row)
+        .filter(p => p.bottomOffset === 0);
+
+    // Re-apply footer merges
     savedMerges.forEach(m => {
-        let newTop = m.top;
-        let newBottom = m.bottom;
-
         if (m.zone === 'footer') {
-            // Footer merges shift by diff
-            newTop += diff;
-            newBottom += diff;
-        }
-        // Data zone merges are discarded (we're writing fresh data rows)
-
-        if (m.zone === 'footer' && newTop > 0 && newBottom > 0) {
-            const newRef = makeMergeRef(newTop, m.left, newBottom, m.right);
-            try { ws.mergeCells(newRef); } catch (e) { }
+            const newTop = m.top + diff;
+            const newBottom = m.bottom + diff;
+            if (newTop > 0 && newBottom > 0) {
+                const newRef = makeMergeRef(newTop, m.left, newBottom, m.right);
+                try { ws.mergeCells(newRef); } catch (e) { }
+            }
         }
     });
+
+    // Re-apply data zone merge patterns to each new data row
+    for (let i = 0; i < neededRows; i++) {
+        const currentRowNum = dataStartRow + i;
+        dataZoneMergePatterns.forEach(pattern => {
+            if (pattern.rowOffset === 0) { // only apply patterns from the first template data row
+                const ref = makeMergeRef(currentRowNum, pattern.left, currentRowNum, pattern.right);
+                try { ws.mergeCells(ref); } catch (e) { }
+            }
+        });
+    }
 
     // 7. Clear all data cells and apply base style
     for (let i = 0; i < neededRows; i++) {
