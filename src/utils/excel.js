@@ -130,23 +130,38 @@ export const readExcelFile = async (file, isSource = true) => {
                     const footerStartRow = findFooterStartInWorksheet(ejsWs, headerRowNum);
                     const existingDataSlots = footerStartRow - headerRowNum - 1;
 
+                    // Helper: extract readable display value from any ExcelJS cell
+                    const extractCellDisplayValue = (cell) => {
+                        const v = cell.value;
+                        if (v === null || v === undefined) return '';
+                        if (typeof v !== 'object') return String(v);
+                        // Formula object: {formula: '...', result: ...}
+                        if (v.formula) return '=' + v.formula;
+                        // Shared formula without own formula
+                        if (v.sharedFormula !== undefined) {
+                            return v.result !== undefined ? String(v.result) : '';
+                        }
+                        // Rich text: {richText: [{text: '...'}]}
+                        if (v.richText && Array.isArray(v.richText)) {
+                            return v.richText.map(rt => rt.text || '').join('');
+                        }
+                        // Error: {error: '#REF!'}
+                        if (v.error) return String(v.error);
+                        // Date object
+                        if (v instanceof Date) return v.toLocaleDateString();
+                        // Result-only objects
+                        if (v.result !== undefined) return String(v.result);
+                        // Fallback: try to get something readable
+                        try { return JSON.stringify(v); } catch (e) { return ''; }
+                    };
+
                     const headerZone = [];
                     for (let r = 1; r < headerRowNum; r++) {
                         const row = ejsWs.getRow(r);
                         const cells = [];
                         for (let c = 1; c <= colCount; c++) {
                             const cell = row.getCell(c);
-                            let displayVal = '';
-                            if (cell.value !== null && cell.value !== undefined) {
-                                if (typeof cell.value === 'object' && cell.value.formula) {
-                                    displayVal = '=' + cell.value.formula;
-                                } else if (typeof cell.value === 'object' && cell.value.result !== undefined) {
-                                    displayVal = String(cell.value.result);
-                                } else {
-                                    displayVal = String(cell.value);
-                                }
-                            }
-                            cells.push({ col: c, value: displayVal });
+                            cells.push({ col: c, value: extractCellDisplayValue(cell) });
                         }
                         headerZone.push({ rowNum: r, cells });
                     }
@@ -157,17 +172,7 @@ export const readExcelFile = async (file, isSource = true) => {
                         const cells = [];
                         for (let c = 1; c <= colCount; c++) {
                             const cell = row.getCell(c);
-                            let displayVal = '';
-                            if (cell.value !== null && cell.value !== undefined) {
-                                if (typeof cell.value === 'object' && cell.value.formula) {
-                                    displayVal = '=' + cell.value.formula;
-                                } else if (typeof cell.value === 'object' && cell.value.result !== undefined) {
-                                    displayVal = String(cell.value.result);
-                                } else {
-                                    displayVal = String(cell.value);
-                                }
-                            }
-                            cells.push({ col: c, value: displayVal });
+                            cells.push({ col: c, value: extractCellDisplayValue(cell) });
                         }
                         footerZone.push({ rowNum: r, cells });
                     }

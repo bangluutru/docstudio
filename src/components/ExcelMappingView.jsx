@@ -226,6 +226,20 @@ export default function ExcelMappingView({ t: tProp, displayLang }) {
             for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
             setTargetBuffer(bytes.buffer);
         }
+
+        // Sanitize zone data: clean [object Object] from old cached profiles
+        const sanitizeZone = (zone) => {
+            if (!zone) return zone;
+            return zone.map(row => ({
+                ...row,
+                cells: row.cells.map(cell => ({
+                    ...cell,
+                    value: cell.value === '[object Object]' ? '' : cell.value
+                }))
+            }));
+        };
+        if (profile.headerZone) setHeaderZone(sanitizeZone(profile.headerZone));
+        if (profile.footerZone) setFooterZone(sanitizeZone(profile.footerZone));
     };
 
     const removeRule = (index) => {
@@ -414,6 +428,7 @@ export default function ExcelMappingView({ t: tProp, displayLang }) {
                                         <table className="w-full text-xs text-left border-collapse">
                                             <thead className="bg-slate-50">
                                                 <tr>
+                                                    <th className="py-1.5 px-2 border-b border-slate-200 font-semibold text-slate-500 whitespace-nowrap text-center w-12">Row</th>
                                                     {targetHeaders.map((header, i) => (
                                                         <th key={i} className="py-1.5 px-2 border-b border-slate-200 font-semibold text-slate-700 whitespace-nowrap">
                                                             {header}
@@ -424,6 +439,9 @@ export default function ExcelMappingView({ t: tProp, displayLang }) {
                                             <tbody>
                                                 {sourceData.length > 0 ? sourceData.map((_, rowIdx) => (
                                                     <tr key={rowIdx} className="border-b border-slate-100">
+                                                        <td className="py-1 px-2 text-center text-[10px] font-mono text-slate-400 bg-slate-50 border-r border-slate-100">
+                                                            {headerRowIndex !== null ? headerRowIndex + 2 + rowIdx : rowIdx + 1}
+                                                        </td>
                                                         {targetHeaders.map((header, colIdx) => {
                                                             const val = getTargetValue(rowIdx, header);
                                                             const isMapped = val !== '';
