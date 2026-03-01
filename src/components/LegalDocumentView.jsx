@@ -16,6 +16,8 @@ import {
     Eye,
 } from 'lucide-react';
 import { getLangVal } from '../utils/lang';
+import PromptHelper from './PromptHelper';
+import { LEGAL_PROMPT_TEXT } from '../utils/prompts';
 
 
 
@@ -234,6 +236,13 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
 
                     {/* Scrollable body */}
                     <div className="flex-grow overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                        {/* Prompt Helper */}
+                        <PromptHelper
+                            title="System Prompt cho Gemini"
+                            promptText={LEGAL_PROMPT_TEXT}
+                            description="Copy prompt này gửi cho Gemini kèm văn bản pháp lý:"
+                        />
+
                         {/* JSON Input */}
                         <section>
                             <div className="flex items-center justify-between mb-2">

@@ -25,6 +25,8 @@ import PdfMergerView from './components/PdfMergerView';
 import TemplateOverlayView from './components/TemplateOverlayView';
 import ExcelMappingView from './components/ExcelMappingView';
 import PageCard from './components/PageCard';
+import PromptHelper from './components/PromptHelper';
+import { CERT_PROMPT_TEXT } from './utils/prompts';
 import { getLangVal } from './utils/lang';
 import { uiTranslations } from './utils/translations';
 import './print.css';
@@ -290,6 +292,13 @@ const App = () => {
 
             {/* Scrollable body */}
             <div className="flex-grow overflow-y-auto p-4 space-y-4 custom-scrollbar">
+
+              {/* Prompt Helper */}
+              <PromptHelper
+                title="System Prompt cho Gemini"
+                promptText={CERT_PROMPT_TEXT}
+                description="Copy prompt này gửi cho Gemini kèm hình ảnh tài liệu:"
+              />
 
               {/* JSON Input */}
               <section>
