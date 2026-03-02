@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
     ClipboardPaste,
     PlusCircle,
@@ -538,6 +538,40 @@ const LongDocTranslatorView = ({ displayLang: globalDisplayLang }) => {
             {/* ================= RIGHT PANEL — PREVIEW ================= */}
             <main className="flex-grow bg-slate-200 min-h-screen relative p-4 md:p-8 flex flex-col items-center">
 
+                {/* Print styles */}
+                <style>{`
+                    @media print {
+                        .no-print { display: none !important; }
+                        body { background: white !important; margin: 0; padding: 0; }
+                        main { padding: 0 !important; background: white !important; }
+                        .ejv-page {
+                            width: 210mm !important;
+                            height: 297mm !important;
+                            margin: 0 !important;
+                            padding: 25mm 15mm 25mm 20mm !important;
+                            box-shadow: none !important;
+                            border: none !important;
+                            border-radius: 0 !important;
+                            page-break-after: always;
+                            page-break-inside: avoid;
+                            overflow: hidden !important;
+                            position: relative;
+                        }
+                        .ejv-page:last-child {
+                            page-break-after: auto;
+                        }
+                        .ejv-page-number {
+                            position: absolute;
+                            bottom: 12mm;
+                            right: 15mm;
+                        }
+                    }
+                    @page {
+                        size: A4;
+                        margin: 0;
+                    }
+                `}</style>
+
                 {/* Floating Toolbar */}
                 <div className="no-print w-full max-w-[210mm] mb-6 flex flex-wrap justify-between items-center gap-3 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-white/80 sticky top-4 z-[50]">
 
@@ -576,33 +610,144 @@ const LongDocTranslatorView = ({ displayLang: globalDisplayLang }) => {
                 </div>
 
                 {/* Document Canvas */}
-                <div id="print-area" ref={printRef} className="flex flex-col gap-0 pb-24 items-center w-full">
+                <div id="print-area" ref={printRef} className="flex flex-col gap-8 pb-24 items-center w-full">
                     {blocks.length === 0 ? (
                         <div className="w-[210mm] min-h-[297mm] bg-white rounded-2xl shadow-sm border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-300 gap-5">
                             <Globe size={72} strokeWidth={1} />
                             <p className="text-lg font-medium italic text-center px-8">{t.empty}</p>
                         </div>
                     ) : (
-                        <div
-                            className="w-[210mm] bg-white shadow-xl rounded-sm"
-                            style={{
-                                padding: '25mm 20mm 25mm 25mm',
-                                minHeight: '297mm',
-                            }}
-                        >
-                            {blocks.map((block, index) => (
-                                <BlockRenderer
-                                    key={index}
-                                    block={block}
-                                    lang={displayLang}
-                                    style={formatStyle}
-                                />
-                            ))}
-                        </div>
+                        <PaginatedPages
+                            blocks={blocks}
+                            lang={displayLang}
+                            formatStyle={formatStyle}
+                        />
                     )}
                 </div>
             </main>
         </div>
+    );
+};
+
+// =====================================================================
+// PaginatedPages — Renders blocks across A4 pages with page numbers
+// Uses a hidden measurement container to calculate actual heights
+// =====================================================================
+const PAGE_CONTENT_HEIGHT_MM = 247; // 297mm - 25mm top - 25mm bottom
+const PX_PER_MM = 3.7795; // 1mm ≈ 3.7795px at 96dpi
+const PAGE_CONTENT_HEIGHT_PX = PAGE_CONTENT_HEIGHT_MM * PX_PER_MM;
+
+const PaginatedPages = ({ blocks, lang, formatStyle }) => {
+    const [pages, setPages] = useState([]);
+    const measureRef = useRef(null);
+
+    useEffect(() => {
+        // Use rAF to ensure DOM is ready for measurements
+        const frame = requestAnimationFrame(() => {
+            if (!measureRef.current) return;
+
+            const container = measureRef.current;
+            const children = container.children;
+            if (children.length === 0) {
+                setPages([]);
+                return;
+            }
+
+            const newPages = [];
+            let currentPage = [];
+            let currentHeight = 0;
+
+            for (let i = 0; i < children.length; i++) {
+                const childHeight = children[i].getBoundingClientRect().height;
+
+                // If adding this block would exceed page height, start a new page
+                if (currentHeight + childHeight > PAGE_CONTENT_HEIGHT_PX && currentPage.length > 0) {
+                    newPages.push([...currentPage]);
+                    currentPage = [];
+                    currentHeight = 0;
+                }
+
+                currentPage.push(i);
+                currentHeight += childHeight;
+            }
+
+            // Add remaining blocks as last page
+            if (currentPage.length > 0) {
+                newPages.push(currentPage);
+            }
+
+            setPages(newPages);
+        });
+
+        return () => cancelAnimationFrame(frame);
+    }, [blocks, lang, formatStyle]);
+
+    const totalPages = pages.length || 1;
+
+    return (
+        <>
+            {/* Hidden measurement container — renders all blocks to measure heights */}
+            <div
+                ref={measureRef}
+                aria-hidden="true"
+                style={{
+                    position: 'absolute',
+                    visibility: 'hidden',
+                    width: '175mm', // 210mm - 20mm left - 15mm right
+                    left: '-9999px',
+                    top: 0,
+                    pointerEvents: 'none',
+                }}
+            >
+                {blocks.map((block, idx) => (
+                    <div key={idx}>
+                        <BlockRenderer block={block} lang={lang} style={formatStyle} />
+                    </div>
+                ))}
+            </div>
+
+            {/* Actual paginated pages */}
+            {pages.map((pageBlockIndices, pageIdx) => (
+                <div
+                    key={pageIdx}
+                    className="ejv-page w-[210mm] bg-white shadow-xl rounded-sm relative"
+                    style={{
+                        padding: '25mm 15mm 25mm 20mm',
+                        minHeight: '297mm',
+                        height: '297mm',
+                        boxSizing: 'border-box',
+                        overflow: 'hidden',
+                    }}
+                >
+                    {/* Page content */}
+                    <div style={{ height: `${PAGE_CONTENT_HEIGHT_MM}mm`, overflow: 'hidden' }}>
+                        {pageBlockIndices.map((blockIdx) => (
+                            <BlockRenderer
+                                key={blockIdx}
+                                block={blocks[blockIdx]}
+                                lang={lang}
+                                style={formatStyle}
+                            />
+                        ))}
+                    </div>
+
+                    {/* Page number — bottom-right */}
+                    <div
+                        className="ejv-page-number"
+                        style={{
+                            position: 'absolute',
+                            bottom: '12mm',
+                            right: '15mm',
+                            fontSize: '9pt',
+                            color: '#94a3b8',
+                            fontFamily: "'Inter', sans-serif",
+                        }}
+                    >
+                        {pageIdx + 1} / {totalPages}
+                    </div>
+                </div>
+            ))}
+        </>
     );
 };
 

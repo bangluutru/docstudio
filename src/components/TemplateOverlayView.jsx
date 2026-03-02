@@ -499,22 +499,16 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
 
                             <button
                                 onClick={() => setCurrentLang('vn')}
-                                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${currentLang === 'vn' ? 'bg-sky-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                            >
-                                Tiếng Việt
-                            </button>
+                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${currentLang === 'vn' ? 'bg-sky-500 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+                            >VN</button>
                             <button
                                 onClick={() => setCurrentLang('en')}
-                                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${currentLang === 'en' ? 'bg-sky-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                            >
-                                English
-                            </button>
+                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${currentLang === 'en' ? 'bg-sky-500 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+                            >EN</button>
                             <button
                                 onClick={() => setCurrentLang('jp')}
-                                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${currentLang === 'jp' ? 'bg-sky-500 text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                            >
-                                日本語
-                            </button>
+                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${currentLang === 'jp' ? 'bg-sky-500 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+                            >JA</button>
                         </div>
                     </div>
 

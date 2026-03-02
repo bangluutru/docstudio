@@ -454,29 +454,32 @@ const App = () => {
             {/* Floating Toolbar */}
             <div className="no-print w-full max-w-[210mm] mb-6 flex flex-wrap justify-between items-center gap-3 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-white/80 sticky top-4 z-[50]">
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 bg-slate-100 px-3 py-2 rounded-xl border border-slate-200">
-                  <Languages size={15} className="text-slate-400" />
-                  <select
-                    value={displayLang}
-                    onChange={(e) => setDisplayLang(e.target.value)}
-                    className="bg-transparent border-none focus:ring-0 text-sm font-bold outline-none text-slate-700 cursor-pointer"
-                  >
-                    <option value="vn">Tiếng Việt</option>
-                    <option value="en">English</option>
-                    <option value="jp">日本語</option>
-                  </select>
+                <Languages size={15} className="text-slate-400" />
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setDisplayLang('vn')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${displayLang === 'vn' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+                  >VN</button>
+                  <button
+                    onClick={() => setDisplayLang('en')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${displayLang === 'en' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+                  >EN</button>
+                  <button
+                    onClick={() => setDisplayLang('jp')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${displayLang === 'jp' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
+                  >JA</button>
                 </div>
-
-                <button
-                  onClick={() => setIsEditing(!isEditing)}
-                  className={`flex items-center gap-1.5 px-4 py-2 font-bold rounded-xl transition-all text-sm shadow-sm ${isEditing
-                    ? 'bg-amber-500 text-white shadow-amber-200'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                    }`}
-                >
-                  {isEditing ? <><Eye size={14} /> {t.previewBtn}</> : <><Edit3 size={14} /> {t.editBtn}</>}
-                </button>
               </div>
+
+              <button
+                onClick={() => setIsEditing(!isEditing)}
+                className={`flex items-center gap-1.5 px-4 py-2 font-bold rounded-xl transition-all text-sm shadow-sm ${isEditing
+                  ? 'bg-amber-500 text-white shadow-amber-200'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                  }`}
+              >
+                {isEditing ? <><Eye size={14} /> {t.previewBtn}</> : <><Edit3 size={14} /> {t.editBtn}</>}
+              </button>
 
               <button
                 onClick={handlePrint}
@@ -513,7 +516,7 @@ const App = () => {
                 ))
               )}
             </div>
-          </main>
+          </main >
 
           <UndoToast
             visible={toastVisible}
@@ -526,7 +529,7 @@ const App = () => {
               if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
             }}
           />
-        </div>
+        </div >
       )}
     </>
   );
