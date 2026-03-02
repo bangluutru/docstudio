@@ -223,6 +223,24 @@ const App = () => {
           <Scale size={15} /> {activeTab === 'legal' ? t.tabLegal : '⚖️'}
         </button>
         <button
+          onClick={() => setActiveTab('ejv-translator')}
+          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-3 transition-all ${activeTab === 'ejv-translator'
+            ? 'border-teal-600 text-teal-700 bg-teal-50/50'
+            : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+            }`}
+        >
+          <Globe size={15} /> {activeTab === 'ejv-translator' ? t.tabEjvTranslator : '🌐'}
+        </button>
+        <button
+          onClick={() => setActiveTab('pdf-overlay')}
+          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-3 transition-all ${activeTab === 'pdf-overlay'
+            ? 'border-fuchsia-600 text-fuchsia-700 bg-fuchsia-50/50'
+            : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+            }`}
+        >
+          <Printer size={15} /> {activeTab === 'pdf-overlay' ? t.tabOverlay : '🖨️'}
+        </button>
+        <button
           onClick={() => setActiveTab('pdf-split')}
           className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-3 transition-all ${activeTab === 'pdf-split'
             ? 'border-rose-600 text-rose-700 bg-rose-50/50'
@@ -241,15 +259,6 @@ const App = () => {
           <Combine size={15} /> {activeTab === 'pdf-merge' ? t.tabPdfMerge : '📂'}
         </button>
         <button
-          onClick={() => setActiveTab('pdf-overlay')}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-3 transition-all ${activeTab === 'pdf-overlay'
-            ? 'border-fuchsia-600 text-fuchsia-700 bg-fuchsia-50/50'
-            : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-            }`}
-        >
-          <Printer size={15} /> {activeTab === 'pdf-overlay' ? t.tabOverlay : '🖨️'}
-        </button>
-        <button
           onClick={() => setActiveTab('excelMapping')}
           className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-3 transition-all ${activeTab === 'excelMapping'
             ? 'border-blue-600 text-blue-700 bg-blue-50/50'
@@ -257,15 +266,6 @@ const App = () => {
             }`}
         >
           <FileSpreadsheet size={15} /> {activeTab === 'excelMapping' ? t.tabExcelMapping : '📊'}
-        </button>
-        <button
-          onClick={() => setActiveTab('ejv-translator')}
-          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-3 transition-all ${activeTab === 'ejv-translator'
-            ? 'border-teal-600 text-teal-700 bg-teal-50/50'
-            : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
-            }`}
-        >
-          <Globe size={15} /> {activeTab === 'ejv-translator' ? t.tabEjvTranslator : '🌐'}
         </button>
         <button
           onClick={() => setActiveTab('guide')}

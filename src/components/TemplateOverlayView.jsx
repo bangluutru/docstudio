@@ -364,157 +364,162 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     };
 
     return (
-        <div className="flex flex-col min-h-screen bg-slate-50 font-sans text-slate-800">
+        <>
+            {/* Print CSS */}
+            <style dangerouslySetInnerHTML={{
+                __html: `
+        @media print {
+          @page { size: A4; margin: 0; }
+          * { overflow: visible !important; }
+          body * { visibility: hidden; }
+          .print-target, .print-target * { visibility: visible; }
+          .print-target {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 210mm !important;
+            ${isHeightTrimmed ? 'height: auto !important; min-height: auto !important;' : 'height: 297mm !important; min-height: 297mm !important;'}
+            margin: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            background-color: white !important;
+            overflow: hidden !important; 
+          }
+          .print-target * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+        }
+      `}} />
 
-            {/* HEADER - NO PRINT */}
-            <div className="no-print bg-slate-900 border-b border-rose-500/30 p-4 shrink-0 shadow-lg">
-                <div className="max-w-[1600px] mx-auto flex items-center justify-between">
-                    <div className="flex items-center gap-3 text-white">
-                        <div className="w-9 h-9 bg-rose-500/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-rose-500/50 shadow-inner">
-                            <Code size={18} className="text-rose-400" strokeWidth={2.5} />
+            <div className="min-h-screen flex flex-col md:flex-row font-sans text-slate-900">
+
+                {/* ============================================================
+                    LEFT PANEL — SIDEBAR
+                ============================================================ */}
+                <aside className="no-print w-full md:w-80 lg:w-96 bg-white border-r border-slate-200 h-screen sticky top-0 flex flex-col shadow-sm z-[60]">
+
+                    {/* Brand Header */}
+                    <div className="p-5 border-b border-slate-100 bg-gradient-to-br from-fuchsia-600 to-fuchsia-800 shrink-0">
+                        <div className="flex items-center gap-2.5 text-white mb-1">
+                            <div className="w-8 h-8 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center border border-white/30">
+                                <Code size={18} strokeWidth={2.5} className="text-white" />
+                            </div>
+                            <h1 className="text-xl font-black tracking-tight uppercase italic">DocStudio</h1>
                         </div>
-                        <div>
-                            <h1 className="text-lg font-black tracking-tight uppercase">Kiến Tạo Mẫu</h1>
-                            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Dynamic HTML Builder</p>
+                        <p className="text-[10px] text-fuchsia-200 font-bold uppercase tracking-widest mt-0.5">
+                            Dynamic HTML Builder
+                        </p>
+                    </div>
+
+                    {/* Scrollable Body */}
+                    <div className="flex-grow overflow-y-auto custom-scrollbar">
+
+                        {/* Prompt Helpers */}
+                        <PromptHelper title="Lệnh AI Vẽ HTML Template" promptText={htmlPromptText} />
+                        <PromptHelper title="Lệnh AI Trích Xuất JSON" promptText={jsonPromptText} />
+
+                        {/* HTML Template Input */}
+                        <div className="p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5 uppercase tracking-wide">
+                                    <Code size={13} /> HTML Template
+                                </label>
+                                {/* Rescue Tools */}
+                                <div className="flex items-center gap-1">
+                                    <button onClick={() => changeFontSize(1)} className="text-[9px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-bold transition-all" title="Tăng font">A+</button>
+                                    <button onClick={() => changeFontSize(-1)} className="text-[9px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-bold transition-all" title="Giảm font">A-</button>
+                                    <button onClick={clearHeights} className="text-[9px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-bold transition-all flex items-center gap-0.5" title="Gọt chiều cao">
+                                        <Minimize2 size={8} className="text-rose-500" /> H
+                                    </button>
+                                    <button onClick={stepDownSpacing} className="text-[9px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-bold transition-all flex items-center gap-0.5" title="Ép khoảng trắng">
+                                        <Shrink size={8} className="text-emerald-500" /> S
+                                    </button>
+                                </div>
+                            </div>
+                            <textarea
+                                className="w-full h-40 p-3 bg-[#1E1E1E] text-blue-300 font-mono text-[10px] leading-relaxed rounded-xl focus:outline-none focus:ring-2 focus:ring-fuchsia-500 resize-none shadow-inner"
+                                value={htmlInput}
+                                onChange={(e) => setHtmlInput(e.target.value)}
+                                spellCheck="false"
+                                placeholder="Dán mã HTML/Tailwind do Gemini gen vào đây..."
+                            />
+
+                            {/* JSON Data Input */}
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5 uppercase tracking-wide">
+                                    <FileText size={13} /> Dữ Liệu JSON
+                                </label>
+                                {jsonError && <span className="text-[9px] text-red-500 font-bold bg-red-50 px-1.5 py-0.5 rounded truncate max-w-[140px]">{jsonError}</span>}
+                            </div>
+                            <textarea
+                                className={`w-full h-36 p-3 bg-[#1E1E1E] text-emerald-300 font-mono text-[10px] leading-relaxed rounded-xl focus:outline-none focus:ring-2 focus:ring-fuchsia-500 resize-none shadow-inner ${jsonError ? 'ring-2 ring-red-500' : ''}`}
+                                value={jsonInput}
+                                onChange={(e) => setJsonInput(e.target.value)}
+                                spellCheck="false"
+                                placeholder='Dán JSON từ Gemini với định dạng _vn, _en, _jp...'
+                            />
+
+                            {/* Zoom control */}
+                            <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
+                                <span className="text-[10px] text-slate-500 font-bold uppercase">Zoom Preview</span>
+                                <div className="flex items-center gap-1">
+                                    <button onClick={() => setContentScale(s => Math.max(0.4, Number((s - 0.05).toFixed(2))))} className="px-2 py-0.5 bg-white rounded shadow-sm hover:bg-slate-100 text-xs font-bold text-slate-600">-</button>
+                                    <span className="w-10 text-center text-[10px] text-slate-600 font-bold">{Math.round(contentScale * 100)}%</span>
+                                    <button onClick={() => setContentScale(s => Math.min(2, Number((s + 0.05).toFixed(2))))} className="px-2 py-0.5 bg-white rounded shadow-sm hover:bg-slate-100 text-xs font-bold text-slate-600">+</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                        {isEditing && (
-                            <div className="hidden lg:flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-xl text-[11px] font-bold text-amber-600 shadow-inner">
-                                <Sparkles size={14} className="text-amber-500" />
-                                <span>Giữ <kbd className="bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200 mx-0.5 shadow-sm text-slate-800">ALT</kbd> + Cick vào Vùng Trắng để gọt tự động</span>
+                    {/* Footer */}
+                    <div className="p-3 border-t border-slate-100 bg-slate-50 shrink-0">
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                            {isEditing && (
+                                <span className="flex items-center gap-1 text-amber-600 font-bold">
+                                    <Sparkles size={10} /> Giữ ALT + Click để gọt spacing
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </aside>
+
+                {/* ============================================================
+                    RIGHT PANEL — PREVIEW
+                ============================================================ */}
+                <main className="flex-grow bg-slate-200 min-h-screen relative p-4 md:p-8 flex flex-col items-center">
+
+                    {/* Floating Toolbar */}
+                    <div className="no-print w-full max-w-[210mm] mb-6 flex flex-wrap justify-between items-center gap-3 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-white/80 sticky top-4 z-[50]">
+                        <div className="flex items-center gap-2">
+                            <Languages size={15} className="text-slate-400" />
+                            <div className="flex gap-1">
+                                <button onClick={() => setCurrentLang('vn')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${currentLang === 'vn' ? 'bg-fuchsia-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>VN</button>
+                                <button onClick={() => setCurrentLang('en')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${currentLang === 'en' ? 'bg-fuchsia-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>EN</button>
+                                <button onClick={() => setCurrentLang('jp')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${currentLang === 'jp' ? 'bg-fuchsia-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>JA</button>
                             </div>
-                        )}
+                        </div>
+
                         <button
                             onClick={() => setIsEditing(!isEditing)}
-                            className={`flex items-center gap-2 px-6 py-2.5 font-bold rounded-xl shadow-lg transition-all ${isEditing ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-white'}`}
+                            className={`flex items-center gap-1.5 px-4 py-2 font-bold rounded-xl transition-all text-sm shadow-sm ${isEditing
+                                ? 'bg-amber-500 text-white shadow-amber-200'
+                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                                }`}
                         >
-                            <FileText size={16} /> {isEditing ? 'Đang Sửa...' : 'Chỉnh Sửa Tay'}
+                            <FileText size={14} /> {isEditing ? 'Đang Sửa...' : 'Chỉnh Sửa'}
                         </button>
+
                         <button
                             onClick={handlePrint}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl shadow-lg transition-all"
+                            className="flex items-center gap-2 px-6 py-2.5 bg-fuchsia-600 text-white font-bold rounded-xl shadow-lg hover:bg-fuchsia-700 transition-all active:scale-95 text-sm"
                         >
-                            <Printer size={16} /> Print / Xuất PDF
+                            <Printer size={15} /> Xuất PDF / In
                         </button>
                     </div>
-                </div>
-            </div>
 
-            {/* MAIN WORKSPACE */}
-            <div className="no-print flex-grow flex flex-col lg:flex-row gap-6 p-4 md:p-6 max-w-[1600px] mx-auto w-full h-[calc(100vh-80px)]">
-
-                {/* LEFT PANEL: HTML Template & JSON Data */}
-                <div className="w-full lg:w-1/3 xl:w-2/5 flex flex-col gap-6 shrink-0 h-full">
-
-                    {/* Step 1: HTML Template */}
-                    <div className="bg-white p-0 rounded-2xl shadow-sm border border-slate-200 flex-grow flex flex-col min-h-[300px] overflow-hidden">
-                        <div className="bg-slate-100 p-2 lg:p-3 border-b border-slate-200 flex justify-between items-center shrink-0 flex-wrap gap-2">
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-                                <span className="w-5 h-5 bg-white shadow-sm rounded flex items-center justify-center text-slate-700">1</span>
-                                HTML Template (Bản vẽ)
-                            </h3>
-                            <div className="flex items-center gap-1">
-                                <button
-                                    onClick={() => changeFontSize(1)}
-                                    className="text-[11px] bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-2 py-1 rounded shadow-sm font-bold flex items-center transition-all"
-                                    title="Tăng kích thước toàn bộ chữ (+1 step)"
-                                >
-                                    A+
-                                </button>
-                                <button
-                                    onClick={() => changeFontSize(-1)}
-                                    className="text-[11px] bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-2 py-1 rounded shadow-sm font-bold flex items-center transition-all"
-                                    title="Giảm kích thước toàn bộ chữ (-1 step)"
-                                >
-                                    A-
-                                </button>
-                                <div className="w-px h-4 bg-slate-300 mx-1 hidden sm:block"></div>
-                                <button
-                                    onClick={clearHeights}
-                                    className="text-[9px] bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-2 py-1 rounded shadow-sm font-bold flex items-center gap-1 transition-all"
-                                    title="Gọt 1 phát dọn sạch bộ lệnh ép chiều cao cố định"
-                                >
-                                    <Minimize2 size={10} className="text-rose-500" /> Gọt Chiều Cao (1-Shot)
-                                </button>
-                                <button
-                                    onClick={stepDownSpacing}
-                                    className="text-[9px] bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-2 py-1 rounded shadow-sm font-bold flex items-center gap-1 transition-all"
-                                    title="Thu nhỏ lề, khoảng cách xuông từ từ (bấm nhiều lần)"
-                                >
-                                    <Shrink size={10} className="text-emerald-500" /> Ép Khoảng Trắng (-)
-                                </button>
-                            </div>
-                        </div>
-                        <PromptHelper title="Lệnh AI Vẽ HTML Template" promptText={htmlPromptText} />
-                        <textarea
-                            className="w-full flex-grow p-4 bg-[#1E1E1E] text-blue-300 font-mono text-[11px] leading-relaxed focus:outline-none resize-none"
-                            value={htmlInput}
-                            onChange={(e) => setHtmlInput(e.target.value)}
-                            spellCheck="false"
-                            placeholder="Dán mã HTML/Tailwind do Gemini gen vào đây. Các biến dùng {{ten_bien}}..."
-                        />
-                    </div>
-
-                    {/* Step 2: JSON Data */}
-                    <div className="bg-white p-0 rounded-2xl shadow-sm border border-slate-200 flex-grow flex flex-col min-h-[300px] overflow-hidden">
-                        <div className="bg-slate-100 p-3 border-b border-slate-200 flex justify-between items-center shrink-0">
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-                                <span className="w-5 h-5 bg-white shadow-sm rounded flex items-center justify-center text-slate-700">2</span>
-                                Dữ Liệu (JSON)
-                            </h3>
-                            {jsonError && <span className="text-[10px] text-red-500 font-bold bg-red-100 px-2 py-1 rounded truncate max-w-[200px]">{jsonError}</span>}
-                        </div>
-                        <PromptHelper title="Lệnh AI Trích Xuất JSON" promptText={jsonPromptText} />
-                        <textarea
-                            className={`w-full flex-grow p-4 bg-[#1E1E1E] text-emerald-300 font-mono text-[11px] leading-relaxed focus:outline-none resize-none ${jsonError ? 'border-2 border-red-500' : ''}`}
-                            value={jsonInput}
-                            onChange={(e) => setJsonInput(e.target.value)}
-                            spellCheck="false"
-                            placeholder="Dán JSON từ Gemini với định dạng _vn, _en, _jp..."
-                        />
-                    </div>
-
-                </div>
-
-                {/* RIGHT PANEL: Live Preview Area */}
-                <div className="flex-grow bg-slate-400 rounded-3xl border-4 border-slate-300 overflow-hidden relative shadow-inner flex flex-col max-h-full">
-                    {/* Toolbar inner */}
-                    <div className="h-12 bg-white/90 backdrop-blur border-b border-slate-300 flex items-center px-4 justify-between shrink-0 z-10">
-                        <div className="flex items-center gap-4">
-                            <span className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
-                                <span className="w-5 h-5 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center shadow-sm">3</span>
-                                Bản Cầm Tay (Live Preview)
-                            </span>
-                        </div>
-                        <div className="flex gap-2 text-[10px] font-bold items-center">
-                            {/* Khung điều chỉnh Scale bằng tay */}
-                            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 mr-2 border border-slate-200">
-                                <span className="text-slate-500 font-medium px-1 uppercase shrink-0">Zoom in:</span>
-                                <button onClick={() => setContentScale(s => Math.max(0.4, Number((s - 0.05).toFixed(2))))} className="px-2 py-1 bg-white rounded shadow-sm hover:bg-slate-50 text-slate-600">-</button>
-                                <span className="w-10 text-center text-slate-600 cursor-default">{Math.round(contentScale * 100)}%</span>
-                                <button onClick={() => setContentScale(s => Math.min(2, Number((s + 0.05).toFixed(2))))} className="px-2 py-1 bg-white rounded shadow-sm hover:bg-slate-50 text-slate-600">+</button>
-                            </div>
-
-                            <button
-                                onClick={() => setCurrentLang('vn')}
-                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${currentLang === 'vn' ? 'bg-sky-500 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
-                            >VN</button>
-                            <button
-                                onClick={() => setCurrentLang('en')}
-                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${currentLang === 'en' ? 'bg-sky-500 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
-                            >EN</button>
-                            <button
-                                onClick={() => setCurrentLang('jp')}
-                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${currentLang === 'jp' ? 'bg-sky-500 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
-                            >JA</button>
-                        </div>
-                    </div>
-
-                    {/* The Scale Wrapper for Preview */}
-                    <div className="flex-grow overflow-auto p-4 md:p-8 flex justify-center bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-slate-300/50">
-                        {/* THE ACTUAL PAPER TO PRINT */}
+                    {/* Document Canvas */}
+                    <div className="flex flex-col gap-10 pb-24 items-center w-full">
                         <div
                             className={`bg-white shadow-2xl transition-all print-target outline-none relative 
                             ${['text-[9px]', 'text-[10px]', 'text-[11px]', 'text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-4xl', 'text-5xl', 'text-6xl'][bodyFontSizeIndex]}
@@ -529,7 +534,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                             suppressContentEditableWarning={true}
                             onClick={handlePreviewClick}
                         >
-                            {/* Inner Scaling Wrapper wrapper */}
+                            {/* Inner Scaling Wrapper */}
                             <div
                                 style={{
                                     transform: `scale(${contentScale})`,
@@ -541,59 +546,9 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                             />
                         </div>
                     </div>
-                </div>
-
+                </main>
             </div>
-
-            {/* =========================================================
-                PRINT CSS INJECTION
-                ========================================================= */}
-            <style dangerouslySetInnerHTML={{
-                __html: `
-        @media print {
-          @page {
-            size: A4;
-            margin: 0; 
-          }
-          /* Force unclipping at global level so no deep flex box can truncate our absolute PDF bounds */
-          * {
-            overflow: visible !important;
-          }
-          /* Hide UI wrappers from vision and structure */
-          body * {
-            visibility: hidden;
-          }
-          /* Unhide the target paper */
-          .print-target, .print-target * {
-            visibility: visible;
-          }
-          .print-target {
-            /* Position exactly over the print canvas */
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            
-            /* Strict Dimensions: 1 A4 Page */
-            width: 210mm !important;
-            ${isHeightTrimmed ? 'height: auto !important; min-height: auto !important;' : 'height: 297mm !important; min-height: 297mm !important;'}
-            
-            /* Internal margin is handled by our 12mm padding inside component */
-            margin: 0 !important;
-            box-shadow: none !important;
-            border: none !important;
-            background-color: white !important;
-            
-            /* CLIPPING: Force cut off anything spilling out of 1 page to avoid blank page overflow */
-            overflow: hidden !important; 
-          }
-          /* Ensure Tailwind background colors print correctly */
-          .print-target * {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-        }
-      `}} />
-        </div>
+        </>
     );
 };
 
