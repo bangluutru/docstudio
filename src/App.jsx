@@ -17,6 +17,7 @@ import {
   FileSpreadsheet,
   Award,
   BookOpen,
+  Globe,
 } from 'lucide-react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import UndoToast from './components/UndoToast';
@@ -29,6 +30,7 @@ import ExcelMappingView from './components/ExcelMappingView';
 import UserGuideView from './components/UserGuideView';
 import PageCard from './components/PageCard';
 import PromptHelper from './components/PromptHelper';
+import LongDocTranslatorView from './components/LongDocTranslatorView';
 import { CERT_PROMPT_TEXT } from './utils/prompts';
 import { getLangVal } from './utils/lang';
 import { uiTranslations } from './utils/translations';
@@ -257,6 +259,15 @@ const App = () => {
           <FileSpreadsheet size={15} /> {activeTab === 'excelMapping' ? t.tabExcelMapping : '📊'}
         </button>
         <button
+          onClick={() => setActiveTab('ejv-translator')}
+          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-3 transition-all ${activeTab === 'ejv-translator'
+            ? 'border-teal-600 text-teal-700 bg-teal-50/50'
+            : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+            }`}
+        >
+          <Globe size={15} /> {activeTab === 'ejv-translator' ? t.tabEjvTranslator : '🌐'}
+        </button>
+        <button
           onClick={() => setActiveTab('guide')}
           className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-3 transition-all ${activeTab === 'guide'
             ? 'border-slate-600 text-slate-700 bg-slate-50/50'
@@ -280,6 +291,8 @@ const App = () => {
         <TemplateOverlayView displayLang={displayLang} />
       ) : activeTab === 'excelMapping' ? (
         <ExcelMappingView t={t} displayLang={displayLang} />
+      ) : activeTab === 'ejv-translator' ? (
+        <LongDocTranslatorView displayLang={displayLang} />
       ) : activeTab === 'guide' ? (
         <UserGuideView displayLang={displayLang} />
       ) : (
