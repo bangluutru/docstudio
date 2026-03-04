@@ -20,7 +20,10 @@ import {
   Globe,
   ZoomIn,
   ZoomOut,
+  FileDown,
 } from 'lucide-react';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import { saveAs } from 'file-saver';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import UndoToast from './components/UndoToast';
 import PageNavigator from './components/PageNavigator';
@@ -199,6 +202,68 @@ const App = () => {
     setTimeout(() => {
       try { window.print(); } catch (e) { console.error('Print Error:', e); }
     }, 400);
+  };
+
+  // DOCX Export
+  const handleExportDocx = async () => {
+    if (pages.length === 0) return;
+    const children = [];
+    pages.forEach((page, idx) => {
+      const title = getLangVal(page, 'title', displayLang);
+      const content = getLangVal(page, 'content', displayLang, []);
+      const pageType = page.pageType || 'default';
+
+      // Page separator
+      if (idx > 0) {
+        children.push(new Paragraph({ text: '', spacing: { before: 600, after: 200 }, border: { bottom: { style: 'single', size: 1, color: 'cccccc' } } }));
+      }
+
+      // Organization (cover pages)
+      if (pageType === 'cover' && (page.organization_vn || page.organization)) {
+        children.push(new Paragraph({
+          children: [new TextRun({ text: getLangVal(page, 'organization', displayLang), bold: true, size: 22, color: '64748b' })],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 200 },
+        }));
+      }
+
+      // Title
+      if (title) {
+        children.push(new Paragraph({
+          children: [new TextRun({ text: title, bold: true, size: pageType === 'cover' ? 36 : 28 })],
+          heading: HeadingLevel.HEADING_1,
+          alignment: AlignmentType.CENTER,
+          spacing: { before: 240, after: 360 },
+        }));
+      }
+
+      // Content lines
+      const lines = Array.isArray(content) ? content : [content];
+      lines.forEach(line => {
+        if (line) {
+          children.push(new Paragraph({
+            children: [new TextRun({ text: line, size: 24 })],
+            spacing: { after: 120 },
+            alignment: AlignmentType.JUSTIFIED,
+          }));
+        }
+      });
+
+      // Date (cover pages)
+      if (pageType === 'cover' && page.date) {
+        children.push(new Paragraph({
+          children: [new TextRun({ text: page.date, italics: true, size: 22, color: '94a3b8' })],
+          alignment: AlignmentType.CENTER,
+          spacing: { before: 480 },
+        }));
+      }
+    });
+
+    const doc = new Document({
+      sections: [{ children }],
+    });
+    const blob = await Packer.toBlob(doc);
+    saveAs(blob, `DocStudio_Certificate_${displayLang.toUpperCase()}.docx`);
   };
 
   return (
@@ -490,6 +555,15 @@ const App = () => {
                 className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               >
                 <Printer size={15} /> {t.printBtn}
+              </button>
+
+              <button
+                onClick={handleExportDocx}
+                disabled={pages.length === 0}
+                title="Export DOCX"
+                className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white font-bold rounded-xl shadow-md hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+              >
+                <FileDown size={14} /> DOCX
               </button>
 
               {/* Zoom Controls */}

@@ -16,7 +16,10 @@ import {
     Eye,
     ZoomIn,
     ZoomOut,
+    FileDown,
 } from 'lucide-react';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, convertInchesToTwip } from 'docx';
+import { saveAs } from 'file-saver';
 import { getLangVal } from '../utils/lang';
 import PromptHelper from './PromptHelper';
 import { LEGAL_PROMPT_TEXT } from '../utils/prompts';
@@ -153,6 +156,119 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
         setTimeout(() => {
             try { window.print(); } catch (e) { console.error('Print Error:', e); }
         }, 400);
+    };
+
+    // --- DOCX Export ---
+    const handleExportDocx = async () => {
+        if (!docData) return;
+        const children = [];
+
+        // Meta info header
+        if (metaInfo) {
+            const issuer = getLangVal(metaInfo, 'issuer', displayLang);
+            if (issuer) {
+                children.push(new Paragraph({
+                    children: [new TextRun({ text: stripCitations(issuer), bold: true, size: 22, font: 'Times New Roman' })],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 80 },
+                }));
+            }
+            if (metaInfo.doc_number) {
+                children.push(new Paragraph({
+                    children: [new TextRun({ text: stripCitations(metaInfo.doc_number), size: 20, color: '666666', font: 'Times New Roman' })],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 40 },
+                }));
+            }
+            const dateStr = getLangVal(metaInfo, 'date', displayLang);
+            if (dateStr) {
+                children.push(new Paragraph({
+                    children: [new TextRun({ text: stripCitations(dateStr), italics: true, size: 20, color: '999999', font: 'Times New Roman' })],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 200 },
+                }));
+            }
+        }
+
+        // Title
+        if (title) {
+            children.push(new Paragraph({
+                children: [new TextRun({ text: title, bold: true, size: 32, font: 'Times New Roman' })],
+                heading: HeadingLevel.HEADING_1,
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 200, after: 400 },
+            }));
+        }
+
+        // Parse markdown content to paragraphs
+        if (content) {
+            const lines = content.split('\n');
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) {
+                    children.push(new Paragraph({ text: '', spacing: { after: 80 } }));
+                    continue;
+                }
+
+                // Headings
+                if (trimmed.startsWith('### ')) {
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: trimmed.replace(/^### /, ''), bold: true, size: 24, font: 'Times New Roman' })],
+                        heading: HeadingLevel.HEADING_3,
+                        spacing: { before: 200, after: 100 },
+                    }));
+                } else if (trimmed.startsWith('## ')) {
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: trimmed.replace(/^## /, ''), bold: true, size: 26, font: 'Times New Roman' })],
+                        heading: HeadingLevel.HEADING_2,
+                        spacing: { before: 280, after: 120 },
+                    }));
+                } else if (trimmed.startsWith('# ')) {
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: trimmed.replace(/^# /, ''), bold: true, size: 28, font: 'Times New Roman' })],
+                        heading: HeadingLevel.HEADING_1,
+                        spacing: { before: 360, after: 160 },
+                    }));
+                    // Bullet list
+                } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: trimmed.replace(/^[-*] /, ''), size: 23, font: 'Times New Roman' })],
+                        bullet: { level: 0 },
+                        spacing: { after: 40 },
+                    }));
+                    // Blockquote
+                } else if (trimmed.startsWith('> ')) {
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: trimmed.replace(/^> /, ''), italics: true, size: 23, color: '475569', font: 'Times New Roman' })],
+                        indent: { left: convertInchesToTwip(0.5) },
+                        spacing: { after: 80 },
+                    }));
+                    // Regular paragraph
+                } else {
+                    // Handle bold (**text**) and italic (*text*)
+                    const runs = [];
+                    const parts = trimmed.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/);
+                    for (const part of parts) {
+                        if (part.startsWith('**') && part.endsWith('**')) {
+                            runs.push(new TextRun({ text: part.slice(2, -2), bold: true, size: 23, font: 'Times New Roman' }));
+                        } else if (part.startsWith('*') && part.endsWith('*')) {
+                            runs.push(new TextRun({ text: part.slice(1, -1), italics: true, size: 23, font: 'Times New Roman' }));
+                        } else if (part) {
+                            runs.push(new TextRun({ text: part, size: 23, font: 'Times New Roman' }));
+                        }
+                    }
+                    children.push(new Paragraph({
+                        children: runs,
+                        spacing: { after: 100 },
+                        alignment: AlignmentType.JUSTIFIED,
+                    }));
+                }
+            }
+        }
+
+        const doc = new Document({ sections: [{ children }] });
+        const blob = await Packer.toBlob(doc);
+        saveAs(blob, `DocStudio_Legal_${displayLang.toUpperCase()}.docx`);
     };
 
     // --- Edit handler: update docData field directly ---
@@ -364,6 +480,15 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
                             className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-xl shadow-lg hover:bg-emerald-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                         >
                             <Printer size={15} /> {t.printBtn}
+                        </button>
+
+                        <button
+                            onClick={handleExportDocx}
+                            disabled={!docData}
+                            title="Export DOCX"
+                            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white font-bold rounded-xl shadow-md hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                        >
+                            <FileDown size={14} /> DOCX
                         </button>
 
                         {/* Zoom Controls */}

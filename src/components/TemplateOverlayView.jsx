@@ -14,7 +14,10 @@ import {
     Check,
     ZoomIn,
     ZoomOut,
+    FileDown,
 } from 'lucide-react';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType } from 'docx';
+import { saveAs } from 'file-saver';
 
 // =====================================================================
 // Helper: Deep flatten JSON and group language keys
@@ -339,6 +342,117 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
         window.print();
     };
 
+    // --- DOCX Export ---
+    const handleExportDocx = async () => {
+        if (!printAreaRef.current) return;
+        const children = [];
+
+        // Walk the DOM tree of the rendered preview
+        const walkNode = (node) => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                const text = node.textContent.trim();
+                if (text) return [new TextRun({ text, size: 22 })];
+                return [];
+            }
+            if (node.nodeType !== Node.ELEMENT_NODE) return [];
+
+            const tag = node.tagName.toLowerCase();
+            const childRuns = [];
+            for (const child of node.childNodes) {
+                childRuns.push(...walkNode(child));
+            }
+
+            // Handle table elements
+            if (tag === 'table') {
+                const rows = [];
+                const trs = node.querySelectorAll('tr');
+                trs.forEach(tr => {
+                    const cells = [];
+                    tr.querySelectorAll('td, th').forEach(cell => {
+                        const isBold = cell.tagName === 'TH' || cell.querySelector('b, strong') || window.getComputedStyle(cell).fontWeight >= 600;
+                        cells.push(new TableCell({
+                            children: [new Paragraph({
+                                children: [new TextRun({ text: cell.textContent.trim(), bold: !!isBold, size: 20 })],
+                            })],
+                            width: { size: Math.floor(100 / Math.max(tr.children.length, 1)), type: WidthType.PERCENTAGE },
+                        }));
+                    });
+                    if (cells.length > 0) rows.push(new TableRow({ children: cells }));
+                });
+                if (rows.length > 0) {
+                    children.push(new Table({ rows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+                    children.push(new Paragraph({ text: '', spacing: { after: 120 } }));
+                }
+                return [];
+            }
+
+            // Headings
+            if (tag === 'h1') {
+                children.push(new Paragraph({
+                    children: childRuns.length ? childRuns.map(r => new TextRun({ ...r, bold: true, size: 32 })) : [new TextRun({ text: node.textContent.trim(), bold: true, size: 32 })],
+                    heading: HeadingLevel.HEADING_1,
+                    alignment: AlignmentType.CENTER,
+                    spacing: { before: 200, after: 200 },
+                }));
+                return [];
+            }
+            if (tag === 'h2') {
+                children.push(new Paragraph({
+                    children: [new TextRun({ text: node.textContent.trim(), bold: true, size: 28 })],
+                    heading: HeadingLevel.HEADING_2,
+                    spacing: { before: 160, after: 120 },
+                }));
+                return [];
+            }
+            if (tag === 'h3' || tag === 'h4') {
+                children.push(new Paragraph({
+                    children: [new TextRun({ text: node.textContent.trim(), bold: true, size: 24 })],
+                    heading: HeadingLevel.HEADING_3,
+                    spacing: { before: 120, after: 80 },
+                }));
+                return [];
+            }
+
+            // Paragraph / div with text
+            if ((tag === 'p' || tag === 'div' || tag === 'span') && childRuns.length > 0) {
+                // Skip if this is a container for block-level children
+                const hasBlockChildren = [...node.children].some(c => ['DIV', 'TABLE', 'H1', 'H2', 'H3', 'P'].includes(c.tagName));
+                if (!hasBlockChildren && node.textContent.trim()) {
+                    const isBold = window.getComputedStyle(node).fontWeight >= 600;
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: node.textContent.trim(), bold: isBold, size: 22 })],
+                        spacing: { after: 60 },
+                    }));
+                    return [];
+                }
+            }
+
+            // Bold / Italic inline
+            if (tag === 'b' || tag === 'strong') {
+                return [new TextRun({ text: node.textContent.trim(), bold: true, size: 22 })];
+            }
+            if (tag === 'i' || tag === 'em') {
+                return [new TextRun({ text: node.textContent.trim(), italics: true, size: 22 })];
+            }
+
+            return childRuns;
+        };
+
+        // Walk from the print target
+        const printTarget = printAreaRef.current.querySelector('.print-target') || printAreaRef.current;
+        for (const child of printTarget.childNodes) {
+            walkNode(child);
+        }
+
+        if (children.length === 0) {
+            children.push(new Paragraph({ children: [new TextRun({ text: printTarget.textContent.trim() || 'No content', size: 22 })] }));
+        }
+
+        const doc = new Document({ sections: [{ children }] });
+        const blob = await Packer.toBlob(doc);
+        saveAs(blob, `DocStudio_Template_${currentLang.toUpperCase()}.docx`);
+    };
+
     const handlePreviewClick = (e) => {
         if (!isEditing || !e.altKey) return;
         e.preventDefault();
@@ -518,6 +632,14 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                             className="flex items-center gap-2 px-6 py-2.5 bg-fuchsia-600 text-white font-bold rounded-xl shadow-lg hover:bg-fuchsia-700 transition-all active:scale-95 text-sm"
                         >
                             <Printer size={15} /> Xuất PDF / In
+                        </button>
+
+                        <button
+                            onClick={handleExportDocx}
+                            title="Export DOCX"
+                            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white font-bold rounded-xl shadow-md hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                        >
+                            <FileDown size={14} /> DOCX
                         </button>
 
                         {/* Zoom Controls */}
