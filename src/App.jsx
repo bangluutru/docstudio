@@ -18,6 +18,8 @@ import {
   Award,
   BookOpen,
   Globe,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import UndoToast from './components/UndoToast';
@@ -57,6 +59,7 @@ const App = () => {
   const [displayLang, setDisplayLang] = useState('vn');
   const [isEditing, setIsEditing] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle');
+  const [zoomLevel, setZoomLevel] = useState(100);
   const [activeTab, setActiveTab] = useState('certificate'); // 'certificate' | 'legal'
 
   // P1-A: Undo state
@@ -452,7 +455,7 @@ const App = () => {
           <main className="flex-grow bg-slate-200 min-h-screen relative p-4 md:p-8 flex flex-col items-center">
 
             {/* Floating Toolbar */}
-            <div className="no-print w-full max-w-[210mm] mb-6 flex flex-wrap justify-between items-center gap-3 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-white/80 sticky top-4 z-[50]">
+            <div className="no-print w-full max-w-[210mm] mb-6 flex flex-wrap justify-between items-center gap-3 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-white/80 sticky top-[48px] z-[50]">
               <div className="flex items-center gap-2">
                 <Languages size={15} className="text-slate-400" />
                 <div className="flex gap-1">
@@ -488,10 +491,21 @@ const App = () => {
               >
                 <Printer size={15} /> {t.printBtn}
               </button>
+
+              {/* Zoom Controls */}
+              <div className="flex items-center gap-1">
+                <button onClick={() => setZoomLevel(z => Math.max(50, z - 10))} className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all" title="Zoom Out">
+                  <ZoomOut size={14} />
+                </button>
+                <span className="text-xs font-bold text-slate-500 min-w-[36px] text-center">{zoomLevel}%</span>
+                <button onClick={() => setZoomLevel(z => Math.min(200, z + 10))} className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all" title="Zoom In">
+                  <ZoomIn size={14} />
+                </button>
+              </div>
             </div>
 
             {/* Pages Canvas */}
-            <div id="print-area" className="flex flex-col gap-10 pb-24 items-center w-full">
+            <div id="print-area" className="flex flex-col gap-10 pb-24 items-center w-full" style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center', transition: 'transform 0.2s ease' }}>
               {pages.length === 0 ? (
                 <div className="w-[210mm] h-[297mm] bg-white rounded-2xl shadow-sm border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-300 gap-5">
                   <FileText size={72} strokeWidth={1} />

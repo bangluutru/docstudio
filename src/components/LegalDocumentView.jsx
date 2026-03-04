@@ -14,6 +14,8 @@ import {
     Scale,
     Edit3,
     Eye,
+    ZoomIn,
+    ZoomOut,
 } from 'lucide-react';
 import { getLangVal } from '../utils/lang';
 import PromptHelper from './PromptHelper';
@@ -102,6 +104,7 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
     const [error, setError] = useState('');
     const [saveStatus, setSaveStatus] = useState('');
     const [isEditing, setIsEditing] = useState(false);
+    const [zoomLevel, setZoomLevel] = useState(100);
     const printRef = useRef(null);
 
     const t = legalUiTranslations[displayLang] || legalUiTranslations.vn;
@@ -325,7 +328,7 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
                 <main className="flex-grow bg-slate-200 min-h-screen relative p-4 md:p-8 flex flex-col items-center">
 
                     {/* Floating Toolbar */}
-                    <div className="no-print w-full max-w-[210mm] mb-6 flex flex-wrap justify-between items-center gap-3 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-white/80 sticky top-4 z-[50]">
+                    <div className="no-print w-full max-w-[210mm] mb-6 flex flex-wrap justify-between items-center gap-3 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-white/80 sticky top-[48px] z-[50]">
                         <div className="flex items-center gap-2">
                             <Languages size={15} className="text-slate-400" />
                             <div className="flex gap-1">
@@ -362,6 +365,17 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
                         >
                             <Printer size={15} /> {t.printBtn}
                         </button>
+
+                        {/* Zoom Controls */}
+                        <div className="flex items-center gap-1">
+                            <button onClick={() => setZoomLevel(z => Math.max(50, z - 10))} className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all" title="Zoom Out">
+                                <ZoomOut size={14} />
+                            </button>
+                            <span className="text-xs font-bold text-slate-500 min-w-[36px] text-center">{zoomLevel}%</span>
+                            <button onClick={() => setZoomLevel(z => Math.min(200, z + 10))} className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all" title="Zoom In">
+                                <ZoomIn size={14} />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Document Canvas */}
@@ -374,7 +388,7 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
                         <div
                             ref={printRef}
                             className="legal-doc-print w-[210mm] bg-white shadow-[0_20px_60px_-10px_rgba(0,0,0,0.12)] border border-slate-100 rounded-sm"
-                            style={{ fontFamily: "'Times New Roman', Times, serif", padding: '20mm 25mm' }}
+                            style={{ fontFamily: "'Times New Roman', Times, serif", padding: '20mm 25mm', transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center', transition: 'transform 0.2s ease' }}
                         >
                             {/* Meta Header */}
                             {metaInfo && (

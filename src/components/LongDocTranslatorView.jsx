@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ExternalHyperlink, convertInchesToTwip } from 'docx';
 import { saveAs } from 'file-saver';
+import { ZoomIn, ZoomOut } from 'lucide-react';
 import PromptHelper from './PromptHelper';
 import { LONG_DOC_TRANS_PROMPT, LONG_DOC_NOTEBOOKLM_PROMPT } from '../utils/prompts';
 
@@ -339,6 +340,7 @@ const LongDocTranslatorView = ({ displayLang: globalDisplayLang }) => {
     const [formatStyle, setFormatStyle] = useState('standard');
     const [saveStatus, setSaveStatus] = useState('idle');
     const [promptSource, setPromptSource] = useState('gemini');
+    const [zoomLevel, setZoomLevel] = useState(100);
     const printRef = useRef(null);
 
     const t = ejvUiText[displayLang] || ejvUiText.vn;
@@ -731,12 +733,12 @@ const LongDocTranslatorView = ({ displayLang: globalDisplayLang }) => {
                 `}</style>
 
                 {/* Floating Toolbar */}
-                <div className="no-print w-full max-w-[210mm] mb-6 flex flex-wrap justify-between items-center gap-3 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-white/80 sticky top-4 z-[50]">
+                <div className="no-print w-full max-w-[210mm] mb-6 flex flex-nowrap justify-between items-center gap-2 bg-white/90 backdrop-blur-md px-3 py-2 rounded-2xl shadow-lg border border-white/80 sticky top-[48px] z-[50]">
 
                     {/* Language Selector */}
-                    <div className="flex items-center gap-2">
-                        <Languages size={15} className="text-slate-400" />
-                        <div className="flex gap-1">
+                    <div className="flex items-center gap-1.5">
+                        <Languages size={14} className="text-slate-400" />
+                        <div className="flex gap-0.5">
                             <button onClick={() => setDisplayLang('vn')} className={langBtnClass('vn')}>VN</button>
                             <button onClick={() => setDisplayLang('en')} className={langBtnClass('en')}>EN</button>
                             <button onClick={() => setDisplayLang('ja')} className={langBtnClass('ja')}>JA</button>
@@ -744,40 +746,50 @@ const LongDocTranslatorView = ({ displayLang: globalDisplayLang }) => {
                     </div>
 
                     {/* Format Buttons */}
-                    <div className="flex items-center gap-1.5">
-                        <Type size={14} className="text-slate-400" />
+                    <div className="flex items-center gap-1">
+                        <Type size={13} className="text-slate-400" />
                         <button onClick={() => setFormatStyle('standard')} className={fmtBtnClass('standard')}>
                             <RotateCcw size={11} /> {t.formatDefault}
                         </button>
                         <button onClick={() => setFormatStyle('administrative')} className={fmtBtnClass('administrative')}>
                             <Landmark size={11} /> {t.formatAdmin}
                         </button>
-                        <button onClick={() => setFormatStyle('academic')} className={fmtBtnClass('academic')}>
-                            <GraduationCap size={11} /> {t.formatAcademic}
+                    </div>
+
+                    {/* Zoom Controls */}
+                    <div className="flex items-center gap-0.5">
+                        <button onClick={() => setZoomLevel(z => Math.max(50, z - 10))} className="p-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all" title="Zoom Out">
+                            <ZoomOut size={13} />
+                        </button>
+                        <span className="text-[10px] font-bold text-slate-500 min-w-[30px] text-center">{zoomLevel}%</span>
+                        <button onClick={() => setZoomLevel(z => Math.min(200, z + 10))} className="p-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all" title="Zoom In">
+                            <ZoomIn size={13} />
                         </button>
                     </div>
 
                     {/* Export Buttons */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                         <button
                             onClick={handleExportDocx}
                             disabled={blocks.length === 0}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            title={t.exportDocx}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white font-bold rounded-xl shadow-md hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
                         >
-                            <FileDown size={15} /> {t.exportDocx}
+                            <FileDown size={14} /> DOCX
                         </button>
                         <button
                             onClick={handlePrint}
                             disabled={blocks.length === 0}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white font-bold rounded-xl shadow-lg hover:bg-teal-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            title={t.printBtn}
+                            className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 text-white font-bold rounded-xl shadow-md hover:bg-teal-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
                         >
-                            <Printer size={15} /> {t.printBtn}
+                            <Printer size={14} /> PDF
                         </button>
                     </div>
                 </div>
 
                 {/* Document Canvas */}
-                <div id="print-area" ref={printRef} className="flex flex-col gap-8 pb-24 items-center w-full">
+                <div id="print-area" ref={printRef} className="flex flex-col gap-8 pb-24 items-center w-full" style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center', transition: 'transform 0.2s ease' }}>
                     {blocks.length === 0 ? (
                         <div className="w-[210mm] min-h-[297mm] bg-white rounded-2xl shadow-sm border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-300 gap-5">
                             <Globe size={72} strokeWidth={1} />

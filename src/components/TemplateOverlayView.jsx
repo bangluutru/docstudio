@@ -11,7 +11,9 @@ import {
     Download,
     Sparkles,
     Copy,
-    Check
+    Check,
+    ZoomIn,
+    ZoomOut,
 } from 'lucide-react';
 
 // =====================================================================
@@ -179,6 +181,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     const [contentScale, setContentScale] = useState(1);
     const [bodyFontSizeIndex, setBodyFontSizeIndex] = useState(4); // default 4 = text-sm
     const [isHeightTrimmed, setIsHeightTrimmed] = useState(false);
+    const [zoomLevel, setZoomLevel] = useState(100);
 
     // Sync with global lang if it changes, but allow local override
     useEffect(() => {
@@ -490,7 +493,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                 <main className="flex-grow bg-slate-200 min-h-screen relative p-4 md:p-8 flex flex-col items-center">
 
                     {/* Floating Toolbar */}
-                    <div className="no-print w-full max-w-[210mm] mb-6 flex flex-wrap justify-between items-center gap-3 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-white/80 sticky top-4 z-[50]">
+                    <div className="no-print w-full max-w-[210mm] mb-6 flex flex-wrap justify-between items-center gap-3 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-white/80 sticky top-[48px] z-[50]">
                         <div className="flex items-center gap-2">
                             <Languages size={15} className="text-slate-400" />
                             <div className="flex gap-1">
@@ -516,10 +519,21 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                         >
                             <Printer size={15} /> Xuất PDF / In
                         </button>
+
+                        {/* Zoom Controls */}
+                        <div className="flex items-center gap-1">
+                            <button onClick={() => setZoomLevel(z => Math.max(50, z - 10))} className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all" title="Zoom Out">
+                                <ZoomOut size={14} />
+                            </button>
+                            <span className="text-xs font-bold text-slate-500 min-w-[36px] text-center">{zoomLevel}%</span>
+                            <button onClick={() => setZoomLevel(z => Math.min(200, z + 10))} className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all" title="Zoom In">
+                                <ZoomIn size={14} />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Document Canvas */}
-                    <div className="flex flex-col gap-10 pb-24 items-center w-full">
+                    <div className="flex flex-col gap-10 pb-24 items-center w-full" style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center', transition: 'transform 0.2s ease' }}>
                         <div
                             className={`bg-white shadow-2xl transition-all print-target outline-none relative 
                             ${['text-[9px]', 'text-[10px]', 'text-[11px]', 'text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-4xl', 'text-5xl', 'text-6xl'][bodyFontSizeIndex]}
