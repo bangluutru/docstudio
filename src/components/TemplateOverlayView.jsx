@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType } from 'docx';
 import { saveAs } from 'file-saver';
+import { TEMPLATE_NOTEBOOKLM_PROMPT } from '../utils/prompts';
 
 // =====================================================================
 // Helper: Deep flatten JSON and group language keys
@@ -185,6 +186,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     const [bodyFontSizeIndex, setBodyFontSizeIndex] = useState(4); // default 4 = text-sm
     const [isHeightTrimmed, setIsHeightTrimmed] = useState(false);
     const [zoomLevel, setZoomLevel] = useState(100);
+    const [promptSource, setPromptSource] = useState('gemini');
 
     // Sync with global lang if it changes, but allow local override
     useEffect(() => {
@@ -532,9 +534,31 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                     {/* Scrollable Body */}
                     <div className="flex-grow overflow-y-auto custom-scrollbar">
 
+                        {/* Prompt Source Toggle */}
+                        <div className="flex gap-1 p-1 mx-4 mt-4 bg-slate-100 rounded-xl">
+                            <button
+                                onClick={() => setPromptSource('gemini')}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${promptSource === 'gemini' ? 'bg-white text-fuchsia-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                ✨ Gemini
+                            </button>
+                            <button
+                                onClick={() => setPromptSource('notebooklm')}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${promptSource === 'notebooklm' ? 'bg-white text-fuchsia-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                📓 NotebookLM
+                            </button>
+                        </div>
+
                         {/* Prompt Helpers */}
-                        <PromptHelper title="Lệnh AI Vẽ HTML Template" promptText={htmlPromptText} />
-                        <PromptHelper title="Lệnh AI Trích Xuất JSON" promptText={jsonPromptText} />
+                        {promptSource === 'gemini' ? (
+                            <>
+                                <PromptHelper title="Lệnh AI Vẽ HTML Template" promptText={htmlPromptText} />
+                                <PromptHelper title="Lệnh AI Trích Xuất JSON" promptText={jsonPromptText} />
+                            </>
+                        ) : (
+                            <PromptHelper title="Hướng dẫn NotebookLM (HTML + JSON)" promptText={TEMPLATE_NOTEBOOKLM_PROMPT} />
+                        )}
 
                         {/* HTML Template Input */}
                         <div className="p-4 space-y-3">

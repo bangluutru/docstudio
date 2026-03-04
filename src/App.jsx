@@ -36,7 +36,7 @@ import UserGuideView from './components/UserGuideView';
 import PageCard from './components/PageCard';
 import PromptHelper from './components/PromptHelper';
 import LongDocTranslatorView from './components/LongDocTranslatorView';
-import { CERT_PROMPT_TEXT } from './utils/prompts';
+import { CERT_PROMPT_TEXT, CERT_NOTEBOOKLM_PROMPT } from './utils/prompts';
 import { getLangVal } from './utils/lang';
 import { uiTranslations } from './utils/translations';
 import './print.css';
@@ -63,6 +63,7 @@ const App = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle');
   const [zoomLevel, setZoomLevel] = useState(100);
+  const [promptSource, setPromptSource] = useState('gemini');
   const [activeTab, setActiveTab] = useState('certificate'); // 'certificate' | 'legal'
 
   // P1-A: Undo state
@@ -388,10 +389,26 @@ const App = () => {
             {/* Scrollable body */}
             <div className="flex-grow overflow-y-auto p-4 space-y-4 custom-scrollbar">
 
+              {/* Prompt Source Toggle */}
+              <div className="flex gap-1 p-1 bg-slate-100 rounded-xl">
+                <button
+                  onClick={() => setPromptSource('gemini')}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${promptSource === 'gemini' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  ✨ Gemini
+                </button>
+                <button
+                  onClick={() => setPromptSource('notebooklm')}
+                  className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${promptSource === 'notebooklm' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  📓 NotebookLM
+                </button>
+              </div>
+
               {/* Prompt Helper */}
               <PromptHelper
-                title="System Prompt cho Gemini"
-                promptText={CERT_PROMPT_TEXT}
+                title={promptSource === 'gemini' ? 'System Prompt cho Gemini' : 'System Prompt cho Gemini (NotebookLM)'}
+                promptText={promptSource === 'gemini' ? CERT_PROMPT_TEXT : CERT_NOTEBOOKLM_PROMPT}
                 description="Copy prompt này gửi cho Gemini kèm hình ảnh tài liệu:"
               />
 

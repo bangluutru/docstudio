@@ -22,7 +22,7 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, conv
 import { saveAs } from 'file-saver';
 import { getLangVal } from '../utils/lang';
 import PromptHelper from './PromptHelper';
-import { LEGAL_PROMPT_TEXT } from '../utils/prompts';
+import { LEGAL_PROMPT_TEXT, LEGAL_NOTEBOOKLM_PROMPT } from '../utils/prompts';
 
 
 
@@ -108,6 +108,7 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
     const [saveStatus, setSaveStatus] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [zoomLevel, setZoomLevel] = useState(100);
+    const [promptSource, setPromptSource] = useState('gemini');
     const printRef = useRef(null);
 
     const t = legalUiTranslations[displayLang] || legalUiTranslations.vn;
@@ -355,10 +356,26 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
 
                     {/* Scrollable body */}
                     <div className="flex-grow overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                        {/* Prompt Source Toggle */}
+                        <div className="flex gap-1 p-1 bg-slate-100 rounded-xl">
+                            <button
+                                onClick={() => setPromptSource('gemini')}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${promptSource === 'gemini' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                ✨ Gemini
+                            </button>
+                            <button
+                                onClick={() => setPromptSource('notebooklm')}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${promptSource === 'notebooklm' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                📓 NotebookLM
+                            </button>
+                        </div>
+
                         {/* Prompt Helper */}
                         <PromptHelper
-                            title="System Prompt cho Gemini"
-                            promptText={LEGAL_PROMPT_TEXT}
+                            title={promptSource === 'gemini' ? 'System Prompt cho Gemini' : 'System Prompt cho Gemini (NotebookLM)'}
+                            promptText={promptSource === 'gemini' ? LEGAL_PROMPT_TEXT : LEGAL_NOTEBOOKLM_PROMPT}
                             description="Copy prompt này gửi cho Gemini kèm văn bản pháp lý:"
                         />
 
