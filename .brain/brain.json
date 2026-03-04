@@ -2,13 +2,13 @@
     "meta": {
         "schema_version": "1.1.0",
         "awf_version": "4.0.0",
-        "last_updated": "2026-03-02T06:45:00+09:00"
+        "last_updated": "2026-03-05T06:11:00+09:00"
     },
     "project": {
         "name": "DocStudio",
         "type": "web-app",
         "status": "active",
-        "description": "Bộ công cụ xử lý tài liệu đa ngôn ngữ (VN/EN/JP): tạo chứng chỉ, dịch văn bản pháp lý, xử lý PDF, template overlay, Excel mapping, user guide",
+        "description": "Bộ công cụ xử lý tài liệu đa ngôn ngữ (VN/EN/JP): tạo chứng chỉ, dịch văn bản pháp lý, dịch văn bản dài (EJV), xử lý PDF, template overlay, Excel mapping, user guide",
         "repo": "https://github.com/bangluutru/docstudio.git",
         "deploy": "Cloudflare Pages"
     },
@@ -53,6 +53,7 @@
                 "name": "Certificate Pages",
                 "key": "certificate",
                 "icon": "Award + 🏅",
+                "color": "indigo",
                 "file": "src/App.jsx (inline)",
                 "components": [
                     "PageCard.jsx",
@@ -71,53 +72,69 @@
                 "name": "Legal Documents",
                 "key": "legal",
                 "icon": "Scale + ⚖️",
+                "color": "emerald",
                 "file": "src/components/LegalDocumentView.jsx",
                 "description": "Dịch thuật văn bản pháp lý, Markdown rendering, citation stripping",
                 "status": "stable"
             },
             {
                 "id": 3,
+                "name": "EJV Translator",
+                "key": "ejv-translator",
+                "icon": "Globe + 🌐",
+                "color": "teal",
+                "file": "src/components/LongDocTranslatorView.jsx",
+                "description": "Dịch văn bản dài với batching, A4 pagination, page numbers, format styles (official/academic), block-based rendering",
+                "status": "stable"
+            },
+            {
+                "id": 4,
+                "name": "Template Overlay",
+                "key": "pdf-overlay",
+                "icon": "Printer + 🖨️",
+                "color": "fuchsia",
+                "file": "src/components/TemplateOverlayView.jsx",
+                "description": "HTML template + JSON data → render preview → in PDF. Redesigned layout.",
+                "status": "stable"
+            },
+            {
+                "id": 5,
                 "name": "PDF Splitter",
                 "key": "pdf-split",
                 "icon": "Scissors + ✂️",
+                "color": "rose",
                 "file": "src/components/PdfSplitterView.jsx",
                 "description": "Tách trang PDF, chọn trang, tải riêng/ghép",
                 "status": "stable"
             },
             {
-                "id": 4,
+                "id": 6,
                 "name": "PDF Merger",
                 "key": "pdf-merge",
                 "icon": "Combine + 📂",
+                "color": "violet",
                 "file": "src/components/PdfMergerView.jsx",
                 "description": "Ghép nhiều file PDF thành 1 file, drag & drop reorder",
                 "status": "stable"
             },
             {
-                "id": 5,
-                "name": "Template Overlay",
-                "key": "pdf-overlay",
-                "icon": "Printer + 🖨️",
-                "file": "src/components/TemplateOverlayView.jsx",
-                "description": "HTML template + JSON data → render preview → in PDF",
-                "status": "stable"
-            },
-            {
-                "id": 6,
+                "id": 7,
                 "name": "Excel Mapping",
                 "key": "excelMapping",
                 "icon": "FileSpreadsheet + 📊",
+                "color": "blue",
                 "file": "src/components/ExcelMappingView.jsx",
                 "description": "Map đơn hàng khách ↔ mẫu NCC, auto-map, 3-zone edit, formula edit, profile, export",
                 "status": "stable"
             },
             {
-                "id": 7,
+                "id": 8,
                 "name": "User Guide",
                 "key": "guide",
                 "icon": "BookOpen + 📖",
+                "color": "slate",
                 "file": "src/components/UserGuideView.jsx",
-                "description": "Hướng dẫn sử dụng đa ngôn ngữ cho cả 6 tab, accordion UI",
+                "description": "Hướng dẫn sử dụng đa ngôn ngữ cho các tab, accordion UI",
                 "status": "stable"
             }
         ],
@@ -135,12 +152,73 @@
             "print_styles": "src/print.css"
         }
     },
+    "features": {
+        "tab1_certificate": {
+            "description": "Tạo phiếu chứng chỉ/kiểm nghiệm từ JSON data",
+            "capabilities": [
+                "Multi-page with navigator",
+                "SVG stamp positioning",
+                "Undo delete",
+                "Overflow warning",
+                "Edit/Preview toggle",
+                "i18n VN/EN/JP",
+                "Auto-save localStorage",
+                "PromptHelper"
+            ]
+        },
+        "tab2_legal": {
+            "description": "Dịch thuật và hiển thị văn bản pháp lý",
+            "capabilities": [
+                "Markdown rendering (GFM)",
+                "Citation stripping",
+                "Edit in-place",
+                "Print/PDF",
+                "Batch mode",
+                "PromptHelper"
+            ]
+        },
+        "tab3_ejv_translator": {
+            "description": "Dịch văn bản dài từ Gemini JSON với batch append",
+            "capabilities": [
+                "Batch JSON append (nối nhiều batch)",
+                "A4 pagination with page numbers",
+                "Format styles: official / academic",
+                "Block-based rendering (heading/paragraph/list/table/blockquote/signature)",
+                "Language toggle VN/EN/JP",
+                "Auto-save localStorage",
+                "PromptHelper (LONG_DOC_TRANS_PROMPT)"
+            ]
+        },
+        "tab4_template_overlay": {
+            "description": "HTML template + JSON → render preview → PDF",
+            "capabilities": [
+                "Dynamic {{key}} interpolation",
+                "Rescue tools (font, spacing)",
+                "Click-to-edit preview",
+                "PromptHelper",
+                "Redesigned layout"
+            ]
+        },
+        "tab7_excel_mapping": {
+            "description": "Upload đơn hàng khách + mẫu NCC → auto-map → xuất Excel",
+            "capabilities": [
+                "Auto-map (keyword matching)",
+                "Merge-aware column mapping",
+                "Formula display/edit",
+                "Row numbers",
+                "Profile save/load",
+                "Single-sheet export"
+            ]
+        }
+    },
     "knowledge_items": {
         "patterns": [
             "ExcelJS merge: unmerge TRƯỚC spliceRows, re-merge SAU write data",
             "ExcelJS cell.value → extractCellDisplayValue handles all object types",
             "PromptHelper: shared component for system prompt copy-to-clipboard",
-            "Trilingual guide: same data structure for VN/EN/JP with accordion UI"
+            "Trilingual guide: same data structure for VN/EN/JP with accordion UI",
+            "A4 pagination: PAGE_CONTENT_HEIGHT_MM = 247mm (297-25-25), PX_PER_MM = 3.7795",
+            "Block-based document rendering: heading/paragraph/list/table/blockquote/signature"
         ],
         "gotchas": [
             "xlsx-template KHÔNG chạy trong browser",
@@ -149,10 +227,11 @@
             "Formula auto-adjustment too fragile → give user manual control"
         ],
         "conventions": [
-            "System prompts in src/utils/prompts.js as exported constants",
+            "System prompts in src/utils/prompts.js as exported constants (CERT_PROMPT_TEXT, LEGAL_PROMPT_TEXT, LONG_DOC_TRANS_PROMPT)",
             "Shared components: PromptHelper, ZoneEditor",
             "Tab views are self-contained with own translations",
-            "Tab icons: Lucide icon + emoji fallback when collapsed"
+            "Tab icons: Lucide icon + emoji fallback when collapsed",
+            "Tab order: Certificate, Legal, EJV, Overlay, PDF Split, PDF Merge, Excel, Guide"
         ]
     }
 }

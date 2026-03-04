@@ -14,9 +14,12 @@ import {
     Landmark,
     GraduationCap,
     RotateCcw,
+    FileDown,
 } from 'lucide-react';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ExternalHyperlink, convertInchesToTwip } from 'docx';
+import { saveAs } from 'file-saver';
 import PromptHelper from './PromptHelper';
-import { LONG_DOC_TRANS_PROMPT } from '../utils/prompts';
+import { LONG_DOC_TRANS_PROMPT, LONG_DOC_NOTEBOOKLM_PROMPT } from '../utils/prompts';
 
 // =====================================================================
 // UI Translations for the EJV Translator module
@@ -28,6 +31,9 @@ const ejvUiText = {
         clearBtn: 'Xóa toàn bộ',
         confirmClear: 'Bạn có chắc chắn muốn xóa toàn bộ văn bản đã dịch không?',
         printBtn: 'Xuất PDF / In',
+        exportDocx: 'Xuất DOCX',
+        promptGemini: 'Gemini',
+        promptNotebook: 'NotebookLM',
         saving: 'Đang lưu...',
         saved: 'Đã lưu',
         errorPrefix: 'Lỗi phân tích JSON: ',
@@ -52,6 +58,9 @@ const ejvUiText = {
         clearBtn: 'Clear All',
         confirmClear: 'Are you sure you want to clear all translated text?',
         printBtn: 'Export PDF / Print',
+        exportDocx: 'Export DOCX',
+        promptGemini: 'Gemini',
+        promptNotebook: 'NotebookLM',
         saving: 'Saving...',
         saved: 'Saved',
         errorPrefix: 'JSON parse error: ',
@@ -76,6 +85,9 @@ const ejvUiText = {
         clearBtn: '全て削除',
         confirmClear: '翻訳されたテキストをすべて削除しますか？',
         printBtn: 'PDFに書き出す / 印刷',
+        exportDocx: 'DOCX出力',
+        promptGemini: 'Gemini',
+        promptNotebook: 'NotebookLM',
         saving: '保存中...',
         saved: '保存済み',
         errorPrefix: 'JSON解析エラー: ',
@@ -326,6 +338,7 @@ const LongDocTranslatorView = ({ displayLang: globalDisplayLang }) => {
     const [displayLang, setDisplayLang] = useState(globalDisplayLang || 'vn');
     const [formatStyle, setFormatStyle] = useState('standard');
     const [saveStatus, setSaveStatus] = useState('idle');
+    const [promptSource, setPromptSource] = useState('gemini');
     const printRef = useRef(null);
 
     const t = ejvUiText[displayLang] || ejvUiText.vn;
@@ -386,6 +399,135 @@ const LongDocTranslatorView = ({ displayLang: globalDisplayLang }) => {
         }, 400);
     };
 
+    // --- Export DOCX ---
+    const handleExportDocx = async () => {
+        const fs = FORMAT_STYLES[formatStyle];
+        const children = [];
+
+        for (const block of blocks) {
+            const val = block[displayLang] || block.vn || block.en || block.ja || '';
+
+            switch (block.type) {
+                case 'h1':
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: val, bold: true, size: parseInt(fs.h1Size) * 2, font: fs.fontFamily.split(',')[0].replace(/'/g, '').trim() })],
+                        heading: HeadingLevel.HEADING_1,
+                        alignment: AlignmentType.CENTER,
+                        spacing: { before: 480, after: 240 },
+                    }));
+                    break;
+                case 'h2':
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: val, bold: true, size: parseInt(fs.h2Size) * 2, font: fs.fontFamily.split(',')[0].replace(/'/g, '').trim() })],
+                        heading: HeadingLevel.HEADING_2,
+                        spacing: { before: 360, after: 160 },
+                    }));
+                    break;
+                case 'h3':
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: val, bold: true, size: parseInt(fs.h3Size) * 2, font: fs.fontFamily.split(',')[0].replace(/'/g, '').trim() })],
+                        heading: HeadingLevel.HEADING_3,
+                        spacing: { before: 240, after: 120 },
+                    }));
+                    break;
+                case 'p':
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: val, size: parseInt(fs.fontSize) * 2, font: fs.fontFamily.split(',')[0].replace(/'/g, '').trim() })],
+                        spacing: { after: 160 },
+                        alignment: formatStyle === 'administrative' ? AlignmentType.JUSTIFIED : AlignmentType.LEFT,
+                        indent: formatStyle === 'administrative' ? { firstLine: convertInchesToTwip(0.4) } : undefined,
+                    }));
+                    break;
+                case 'ul':
+                case 'ol': {
+                    const items = Array.isArray(val) ? val : [val];
+                    items.forEach(item => {
+                        children.push(new Paragraph({
+                            children: [new TextRun({ text: item, size: parseInt(fs.fontSize) * 2, font: fs.fontFamily.split(',')[0].replace(/'/g, '').trim() })],
+                            bullet: block.type === 'ul' ? { level: 0 } : undefined,
+                            numbering: block.type === 'ol' ? { reference: 'default-numbering', level: 0 } : undefined,
+                            spacing: { after: 40 },
+                        }));
+                    });
+                    break;
+                }
+                case 'table': {
+                    const headers = block.headers?.[displayLang] || block.headers?.vn || [];
+                    const rows = block.rows?.[displayLang] || block.rows?.vn || [];
+                    const tableRows = [];
+                    if (headers.length > 0) {
+                        tableRows.push(new TableRow({
+                            children: headers.map(h => new TableCell({
+                                children: [new Paragraph({ children: [new TextRun({ text: h, bold: true, size: parseInt(fs.fontSize) * 2 })] })],
+                                width: { size: Math.floor(100 / headers.length), type: WidthType.PERCENTAGE },
+                            })),
+                        }));
+                    }
+                    rows.forEach(row => {
+                        const cells = Array.isArray(row) ? row : [row];
+                        tableRows.push(new TableRow({
+                            children: cells.map(cell => new TableCell({
+                                children: [new Paragraph({ children: [new TextRun({ text: String(cell), size: parseInt(fs.fontSize) * 2 })] })],
+                            })),
+                        }));
+                    });
+                    if (tableRows.length > 0) {
+                        children.push(new Table({ rows: tableRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+                        children.push(new Paragraph({ text: '', spacing: { after: 160 } }));
+                    }
+                    break;
+                }
+                case 'blockquote':
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: val, italics: true, size: parseInt(fs.fontSize) * 2, color: '475569', font: fs.fontFamily.split(',')[0].replace(/'/g, '').trim() })],
+                        indent: { left: convertInchesToTwip(0.5) },
+                        border: { left: { style: BorderStyle.SINGLE, size: 6, color: '6366f1' } },
+                        spacing: { before: 160, after: 160 },
+                    }));
+                    break;
+                case 'hr':
+                    children.push(new Paragraph({
+                        border: { bottom: { style: BorderStyle.SINGLE, size: 1, color: 'cbd5e1' } },
+                        spacing: { before: 320, after: 320 },
+                    }));
+                    break;
+                case 'caption':
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: val, italics: true, size: 18, color: '64748b', font: fs.fontFamily.split(',')[0].replace(/'/g, '').trim() })],
+                        alignment: AlignmentType.CENTER,
+                        spacing: { before: 80, after: 240 },
+                    }));
+                    break;
+                default:
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: val, size: parseInt(fs.fontSize) * 2 })],
+                        spacing: { after: 160 },
+                    }));
+            }
+        }
+
+        const doc = new Document({
+            sections: [{
+                properties: {
+                    page: {
+                        margin: { top: convertInchesToTwip(1), bottom: convertInchesToTwip(1), left: convertInchesToTwip(0.79), right: convertInchesToTwip(0.59) },
+                    },
+                },
+                children,
+            }],
+            numbering: {
+                config: [{
+                    reference: 'default-numbering',
+                    levels: [{ level: 0, format: 'decimal', text: '%1.', alignment: AlignmentType.LEFT }],
+                }],
+            },
+        });
+
+        const blob = await Packer.toBlob(doc);
+        const langLabel = displayLang === 'ja' ? 'JP' : displayLang.toUpperCase();
+        saveAs(blob, `EJV_Document_${langLabel}.docx`);
+    };
+
     // --- Language button style helper ---
     const langBtnClass = (lang) =>
         `px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${displayLang === lang
@@ -421,10 +563,26 @@ const LongDocTranslatorView = ({ displayLang: globalDisplayLang }) => {
                 {/* Scrollable Body */}
                 <div className="flex-grow overflow-y-auto p-4 space-y-4 custom-scrollbar">
 
+                    {/* Prompt Source Toggle */}
+                    <div className="flex gap-1 p-1 bg-slate-100 rounded-xl">
+                        <button
+                            onClick={() => setPromptSource('gemini')}
+                            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${promptSource === 'gemini' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            ✨ {t.promptGemini}
+                        </button>
+                        <button
+                            onClick={() => setPromptSource('notebooklm')}
+                            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${promptSource === 'notebooklm' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            📓 {t.promptNotebook}
+                        </button>
+                    </div>
+
                     {/* Prompt Helper */}
                     <PromptHelper
-                        title={t.promptTitle}
-                        promptText={LONG_DOC_TRANS_PROMPT}
+                        title={promptSource === 'gemini' ? t.promptTitle : `${t.promptTitle} (NotebookLM)`}
+                        promptText={promptSource === 'gemini' ? LONG_DOC_TRANS_PROMPT : LONG_DOC_NOTEBOOKLM_PROMPT}
                         description={t.promptDesc}
                     />
 
@@ -599,14 +757,23 @@ const LongDocTranslatorView = ({ displayLang: globalDisplayLang }) => {
                         </button>
                     </div>
 
-                    {/* Print Button */}
-                    <button
-                        onClick={handlePrint}
-                        disabled={blocks.length === 0}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-teal-600 text-white font-bold rounded-xl shadow-lg hover:bg-teal-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                    >
-                        <Printer size={15} /> {t.printBtn}
-                    </button>
+                    {/* Export Buttons */}
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={handleExportDocx}
+                            disabled={blocks.length === 0}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                        >
+                            <FileDown size={15} /> {t.exportDocx}
+                        </button>
+                        <button
+                            onClick={handlePrint}
+                            disabled={blocks.length === 0}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-teal-600 text-white font-bold rounded-xl shadow-lg hover:bg-teal-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                        >
+                            <Printer size={15} /> {t.printBtn}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Document Canvas */}
@@ -635,7 +802,8 @@ const LongDocTranslatorView = ({ displayLang: globalDisplayLang }) => {
 // =====================================================================
 const PAGE_CONTENT_HEIGHT_MM = 247; // 297mm - 25mm top - 25mm bottom
 const PX_PER_MM = 3.7795; // 1mm ≈ 3.7795px at 96dpi
-const PAGE_CONTENT_HEIGHT_PX = PAGE_CONTENT_HEIGHT_MM * PX_PER_MM;
+const SAFETY_BUFFER_MM = 5; // Safety buffer to prevent text clipping at page edges
+const PAGE_CONTENT_HEIGHT_PX = (PAGE_CONTENT_HEIGHT_MM - SAFETY_BUFFER_MM) * PX_PER_MM;
 
 const PaginatedPages = ({ blocks, lang, formatStyle }) => {
     const [pages, setPages] = useState([]);
@@ -662,9 +830,18 @@ const PaginatedPages = ({ blocks, lang, formatStyle }) => {
 
                 // If adding this block would exceed page height, start a new page
                 if (currentHeight + childHeight > PAGE_CONTENT_HEIGHT_PX && currentPage.length > 0) {
-                    newPages.push([...currentPage]);
+                    newPages.push({ indices: [...currentPage], oversized: false });
                     currentPage = [];
                     currentHeight = 0;
+                }
+
+                // If single block is taller than a page, mark it as oversized
+                if (childHeight > PAGE_CONTENT_HEIGHT_PX && currentPage.length === 0) {
+                    currentPage.push(i);
+                    newPages.push({ indices: [...currentPage], oversized: true });
+                    currentPage = [];
+                    currentHeight = 0;
+                    continue;
                 }
 
                 currentPage.push(i);
@@ -673,7 +850,7 @@ const PaginatedPages = ({ blocks, lang, formatStyle }) => {
 
             // Add remaining blocks as last page
             if (currentPage.length > 0) {
-                newPages.push(currentPage);
+                newPages.push({ indices: [...currentPage], oversized: false });
             }
 
             setPages(newPages);
@@ -707,21 +884,21 @@ const PaginatedPages = ({ blocks, lang, formatStyle }) => {
             </div>
 
             {/* Actual paginated pages */}
-            {pages.map((pageBlockIndices, pageIdx) => (
+            {pages.map((page, pageIdx) => (
                 <div
                     key={pageIdx}
                     className="ejv-page w-[210mm] bg-white shadow-xl rounded-sm relative"
                     style={{
                         padding: '25mm 15mm 25mm 20mm',
                         minHeight: '297mm',
-                        height: '297mm',
+                        height: page.oversized ? 'auto' : '297mm',
                         boxSizing: 'border-box',
-                        overflow: 'hidden',
+                        overflow: 'visible',
                     }}
                 >
                     {/* Page content */}
-                    <div style={{ height: `${PAGE_CONTENT_HEIGHT_MM}mm`, overflow: 'hidden' }}>
-                        {pageBlockIndices.map((blockIdx) => (
+                    <div style={{ minHeight: page.oversized ? undefined : `${PAGE_CONTENT_HEIGHT_MM}mm`, maxHeight: page.oversized ? undefined : `${PAGE_CONTENT_HEIGHT_MM}mm`, overflow: 'visible' }}>
+                        {page.indices.map((blockIdx) => (
                             <BlockRenderer
                                 key={blockIdx}
                                 block={blocks[blockIdx]}
