@@ -109,6 +109,7 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
     const [saveStatus, setSaveStatus] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [zoomLevel, setZoomLevel] = useState(100);
+    const [customFont, setCustomFont] = useState(null);
     const [promptSource, setPromptSource] = useState('gemini');
     const printRef = useRef(null);
 
@@ -467,6 +468,9 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
                         onLangChange={onLangChange}
                         langOptions={['vn', 'en', 'jp']}
                         accentColor="emerald"
+                        showFontPicker={true}
+                        currentFont={customFont || "'Times New Roman', serif"}
+                        onFontChange={setCustomFont}
                         showEdit={true}
                         isEditing={isEditing}
                         onToggleEdit={() => setIsEditing(!isEditing)}

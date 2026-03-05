@@ -64,6 +64,7 @@ const App = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle');
   const [zoomLevel, setZoomLevel] = useState(100);
+  const [customFont, setCustomFont] = useState(null);
   const [promptSource, setPromptSource] = useState('gemini');
   const [activeTab, setActiveTab] = useState('certificate'); // 'certificate' | 'legal'
 
@@ -647,6 +648,9 @@ const App = () => {
               onLangChange={setDisplayLang}
               langOptions={['vn', 'en', 'jp']}
               accentColor="indigo"
+              showFontPicker={true}
+              currentFont={customFont || "'Times New Roman', serif"}
+              onFontChange={setCustomFont}
               showEdit={true}
               isEditing={isEditing}
               onToggleEdit={() => setIsEditing(!isEditing)}

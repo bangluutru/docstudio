@@ -187,6 +187,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     const [bodyFontSizeIndex, setBodyFontSizeIndex] = useState(4); // default 4 = text-sm
     const [isHeightTrimmed, setIsHeightTrimmed] = useState(false);
     const [zoomLevel, setZoomLevel] = useState(100);
+    const [customFont, setCustomFont] = useState(null);
     const [promptSource, setPromptSource] = useState('gemini');
 
     // Sync with global lang if it changes, but allow local override
@@ -637,6 +638,9 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                         onLangChange={setCurrentLang}
                         langOptions={['vn', 'en', 'jp']}
                         accentColor="fuchsia"
+                        showFontPicker={true}
+                        currentFont={customFont || "'Times New Roman', serif"}
+                        onFontChange={setCustomFont}
                         showEdit={true}
                         isEditing={isEditing}
                         onToggleEdit={() => setIsEditing(!isEditing)}

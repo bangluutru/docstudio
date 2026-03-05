@@ -53,87 +53,91 @@ const DocToolbar = ({
     return (
         <div className="no-print w-full max-w-[210mm] mb-6 flex flex-nowrap justify-between items-center gap-2 bg-white/90 backdrop-blur-md px-3 py-2 rounded-2xl shadow-lg border border-white/80 sticky top-[48px] z-[50]">
 
-            {/* Language Selector */}
-            <div className="flex items-center gap-1.5 shrink-0">
-                <Languages size={14} className="text-slate-400" />
-                <div className="flex gap-0.5">
-                    {langOptions.map(lang => (
-                        <button
-                            key={lang}
-                            onClick={() => onLangChange?.(lang)}
-                            className={langBtnClass(lang)}
-                        >
-                            {langLabels[lang] || lang.toUpperCase()}
-                        </button>
-                    ))}
+            {/* LEFT GROUP: Language + Font + Edit */}
+            <div className="flex items-center gap-2 shrink-0">
+                {/* Language Selector */}
+                <div className="flex items-center gap-1.5">
+                    <Languages size={14} className="text-slate-400" />
+                    <div className="flex gap-0.5">
+                        {langOptions.map(lang => (
+                            <button
+                                key={lang}
+                                onClick={() => onLangChange?.(lang)}
+                                className={langBtnClass(lang)}
+                            >
+                                {langLabels[lang] || lang.toUpperCase()}
+                            </button>
+                        ))}
+                    </div>
                 </div>
-            </div>
 
-            {/* Font Picker (optional) */}
-            {showFontPicker && onFontChange && (
-                <div className="shrink-0">
+                {/* Font Picker */}
+                {showFontPicker && onFontChange && (
                     <GoogleFontPicker
                         currentFont={currentFont}
                         onFontChange={onFontChange}
                         accentColor={accentColor}
                     />
-                </div>
-            )}
+                )}
 
-            {/* Edit Toggle (optional) — icon-only for compact layout */}
-            {showEdit && onToggleEdit && (
-                <button
-                    onClick={onToggleEdit}
-                    disabled={disableEdit}
-                    className={`p-1.5 rounded-lg transition-all shrink-0 disabled:opacity-50 disabled:cursor-not-allowed ${isEditing
-                        ? 'bg-amber-500 text-white shadow-md shadow-amber-200'
-                        : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'
-                        }`}
-                    title={isEditing ? 'Preview' : 'Edit'}
-                >
-                    {isEditing ? <Eye size={14} /> : <Edit3 size={14} />}
-                </button>
-            )}
-
-            {/* Zoom Controls */}
-            <div className="flex items-center gap-0.5 shrink-0">
-                <button
-                    onClick={() => onZoomChange?.(Math.max(50, zoomLevel - 10))}
-                    className="p-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all"
-                    title="Zoom Out"
-                >
-                    <ZoomOut size={13} />
-                </button>
-                <span className="text-[10px] font-bold text-slate-500 min-w-[30px] text-center">
-                    {zoomLevel}%
-                </span>
-                <button
-                    onClick={() => onZoomChange?.(Math.min(200, zoomLevel + 10))}
-                    className="p-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all"
-                    title="Zoom In"
-                >
-                    <ZoomIn size={13} />
-                </button>
+                {/* Edit Toggle — icon-only */}
+                {showEdit && onToggleEdit && (
+                    <button
+                        onClick={onToggleEdit}
+                        disabled={disableEdit}
+                        className={`p-1.5 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isEditing
+                            ? 'bg-amber-500 text-white shadow-md shadow-amber-200'
+                            : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'
+                            }`}
+                        title={isEditing ? 'Preview' : 'Edit'}
+                    >
+                        {isEditing ? <Eye size={14} /> : <Edit3 size={14} />}
+                    </button>
+                )}
             </div>
 
-            {/* Export Buttons */}
-            <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                    onClick={onExportDocx}
-                    disabled={disableActions}
-                    title="Export DOCX"
-                    className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white font-bold rounded-xl shadow-md hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
-                >
-                    <FileDown size={14} /> DOCX
-                </button>
-                <button
-                    onClick={onPrint}
-                    disabled={disableActions}
-                    title="Export PDF / Print"
-                    className={`flex items-center gap-1.5 px-3 py-2 ${c.print} text-white font-bold rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-xs`}
-                >
-                    <Printer size={14} /> {printLabel}
-                </button>
+            {/* RIGHT GROUP: Zoom + Export */}
+            <div className="flex items-center gap-2 shrink-0">
+                {/* Zoom Controls */}
+                <div className="flex items-center gap-0.5">
+                    <button
+                        onClick={() => onZoomChange?.(Math.max(50, zoomLevel - 10))}
+                        className="p-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all"
+                        title="Zoom Out"
+                    >
+                        <ZoomOut size={13} />
+                    </button>
+                    <span className="text-[10px] font-bold text-slate-500 min-w-[30px] text-center">
+                        {zoomLevel}%
+                    </span>
+                    <button
+                        onClick={() => onZoomChange?.(Math.min(200, zoomLevel + 10))}
+                        className="p-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all"
+                        title="Zoom In"
+                    >
+                        <ZoomIn size={13} />
+                    </button>
+                </div>
+
+                {/* Export Buttons */}
+                <div className="flex items-center gap-1.5">
+                    <button
+                        onClick={onExportDocx}
+                        disabled={disableActions}
+                        title="Export DOCX"
+                        className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white font-bold rounded-xl shadow-md hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                    >
+                        <FileDown size={14} /> DOCX
+                    </button>
+                    <button
+                        onClick={onPrint}
+                        disabled={disableActions}
+                        title="Export PDF / Print"
+                        className={`flex items-center gap-1.5 px-3 py-2 ${c.print} text-white font-bold rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-xs`}
+                    >
+                        <Printer size={14} /> {printLabel}
+                    </button>
+                </div>
             </div>
         </div>
     );
