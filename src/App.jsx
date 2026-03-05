@@ -211,7 +211,7 @@ const App = () => {
     const children = [];
     pages.forEach((page, idx) => {
       const title = getLangVal(page, 'title', displayLang);
-      const content = getLangVal(page, 'content', displayLang, []);
+      const currentContent = getLangVal(page, 'content', displayLang, []);
       const pageType = page.pageType || 'default';
 
       // Page separator
@@ -219,43 +219,147 @@ const App = () => {
         children.push(new Paragraph({ text: '', spacing: { before: 600, after: 200 }, border: { bottom: { style: 'single', size: 1, color: 'cccccc' } } }));
       }
 
-      // Organization (cover pages)
-      if (pageType === 'cover' && (page.organization_vn || page.organization)) {
-        children.push(new Paragraph({
-          children: [new TextRun({ text: getLangVal(page, 'organization', displayLang), bold: true, size: 22, color: '64748b' })],
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 200 },
-        }));
+      // ── Cover page ──
+      if (pageType === 'cover') {
+        if (page.organization_vn || page.organization) {
+          children.push(new Paragraph({
+            children: [new TextRun({ text: getLangVal(page, 'organization', displayLang), bold: true, size: 22, color: '64748b' })],
+            alignment: AlignmentType.CENTER, spacing: { after: 200 },
+          }));
+        }
+        if (title) {
+          children.push(new Paragraph({
+            children: [new TextRun({ text: title, bold: true, size: 36 })],
+            heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, spacing: { before: 240, after: 360 },
+          }));
+        }
+        const lines = Array.isArray(currentContent) ? currentContent : [currentContent];
+        lines.forEach(line => {
+          if (line) children.push(new Paragraph({ children: [new TextRun({ text: line, size: 24, italics: true })], alignment: AlignmentType.CENTER }));
+        });
+        if (page.date) {
+          children.push(new Paragraph({ children: [new TextRun({ text: page.date, italics: true, size: 22, color: '94a3b8' })], alignment: AlignmentType.CENTER, spacing: { before: 480 } }));
+        }
+        return;
+      }
+
+      // ── Certificate / Default / Appendix pages ──
+
+      // Doc header (recipient + date)
+      if (page.doc_header) {
+        const recipient = getLangVal(page.doc_header, 'recipient', displayLang);
+        const date = getLangVal(page.doc_header, 'date', displayLang);
+        if (recipient || date) {
+          const runs = [];
+          if (recipient) runs.push(new TextRun({ text: recipient, size: 18 }));
+          if (recipient && date) runs.push(new TextRun({ text: '          ', size: 18 }));
+          if (date) runs.push(new TextRun({ text: date, size: 18 }));
+          children.push(new Paragraph({ children: runs, spacing: { after: 120 } }));
+        }
+      }
+
+      // Form number + internal report
+      const formNo = getLangVal(page, 'formNo', displayLang);
+      if (formNo) {
+        children.push(new Paragraph({ children: [new TextRun({ text: formNo, bold: true, size: 16, color: '64748b' })], spacing: { after: 60 } }));
       }
 
       // Title
       if (title) {
         children.push(new Paragraph({
-          children: [new TextRun({ text: title, bold: true, size: pageType === 'cover' ? 36 : 28 })],
-          heading: HeadingLevel.HEADING_1,
-          alignment: AlignmentType.CENTER,
-          spacing: { before: 240, after: 360 },
+          children: [new TextRun({ text: title, bold: true, size: 28, underline: {} })],
+          heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 },
         }));
       }
 
-      // Content lines
-      const lines = Array.isArray(content) ? content : [content];
-      lines.forEach(line => {
+      // Company info
+      if (page.company_info) {
+        const compName = getLangVal(page.company_info, 'name', displayLang);
+        const compDept = getLangVal(page.company_info, 'department', displayLang);
+        if (compName) children.push(new Paragraph({ children: [new TextRun({ text: compName, bold: true, size: 21 })], alignment: AlignmentType.RIGHT, spacing: { after: 40 } }));
+        if (compDept) children.push(new Paragraph({ children: [new TextRun({ text: compDept, bold: true, size: 21 })], alignment: AlignmentType.RIGHT, spacing: { after: 160 } }));
+      }
+
+      // Content paragraphs
+      const contentLines = Array.isArray(currentContent) ? currentContent : [currentContent];
+      contentLines.forEach(line => {
         if (line) {
-          children.push(new Paragraph({
-            children: [new TextRun({ text: line, size: 24 })],
-            spacing: { after: 120 },
-            alignment: AlignmentType.JUSTIFIED,
-          }));
+          children.push(new Paragraph({ children: [new TextRun({ text: line, size: 20, italics: true })], spacing: { after: 80 } }));
         }
       });
 
-      // Date (cover pages)
-      if (pageType === 'cover' && page.date) {
+      // Meta table (key-value pairs)
+      const meta = page.meta || [];
+      if (meta.length > 0) {
+        const metaRows = meta.map(m => {
+          const label = getLangVal(m, 'label', displayLang);
+          const rawVal = getLangVal(m, 'value', displayLang);
+          return new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: label || '', bold: true, size: 19 })] })], width: { size: 35, type: WidthType.PERCENTAGE } }),
+              new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: String(rawVal || ''), size: 19 })] })] }),
+            ],
+          });
+        });
+        children.push(new Table({ rows: metaRows, width: { size: page.meta_half_width ? 50 : 100, type: WidthType.PERCENTAGE } }));
+        children.push(new Paragraph({ text: '', spacing: { after: 120 } }));
+      }
+
+      // Test results title
+      if (page.table) {
+        const testTitle = getLangVal(page, 'testResultsTitle', displayLang);
+        if (testTitle) {
+          children.push(new Paragraph({ children: [new TextRun({ text: testTitle, bold: true, size: 20 })], spacing: { before: 160, after: 80 } }));
+        }
+      }
+
+      // Data table (test results)
+      if (page.table) {
+        const tHeaders = getLangVal(page.table, 'headers', displayLang, []);
+        const tRows = getLangVal(page.table, 'rows', displayLang, []);
+
+        const allRows = [];
+        // Header row
+        if (tHeaders.length > 0) {
+          allRows.push(new TableRow({
+            tableHeader: true,
+            children: tHeaders.map(h => new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: h || '', bold: true, size: 19 })], alignment: AlignmentType.CENTER })],
+              shading: { fill: 'f3f4f6' },
+            })),
+          }));
+        }
+        // Data rows
+        tRows.forEach(row => {
+          if (Array.isArray(row)) {
+            allRows.push(new TableRow({
+              children: row.map(cell => {
+                const cellText = (cell && typeof cell === 'object' && cell.svg) ? '[SVG]' : (typeof cell === 'string' && cell.includes('<svg')) ? '[SVG]' : String(cell || '');
+                return new TableCell({
+                  children: [new Paragraph({ children: [new TextRun({ text: cellText, size: 18 })], alignment: AlignmentType.CENTER })],
+                });
+              }),
+            }));
+          }
+        });
+
+        if (allRows.length > 0) {
+          children.push(new Table({ rows: allRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+          children.push(new Paragraph({ text: '', spacing: { after: 120 } }));
+        }
+      }
+
+      // Footer note
+      const footer = getLangVal(page, 'footer', displayLang);
+      if (footer) {
+        children.push(new Paragraph({ children: [new TextRun({ text: footer, italics: true, size: 18, color: '475569' })], spacing: { before: 160, after: 80 } }));
+      }
+
+      // Judgment
+      if (page.judgment) {
         children.push(new Paragraph({
-          children: [new TextRun({ text: page.date, italics: true, size: 22, color: '94a3b8' })],
-          alignment: AlignmentType.CENTER,
-          spacing: { before: 480 },
+          children: [new TextRun({ text: '✓ ĐẠT / PASSED / 合格', bold: true, size: 24, color: 'dc2626' })],
+          alignment: AlignmentType.RIGHT, spacing: { before: 200 },
         }));
       }
     });
