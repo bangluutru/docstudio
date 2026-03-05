@@ -652,7 +652,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                     />
 
                     {/* Document Canvas */}
-                    <div className="flex flex-col gap-10 pb-24 items-center w-full" style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center', transition: 'transform 0.2s ease' }}>
+                    <div ref={printAreaRef} className="flex flex-col gap-10 pb-24 items-center w-full" style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center', transition: 'transform 0.2s ease' }}>
                         <div
                             className={`bg-white shadow-2xl transition-all print-target outline-none relative 
                             ${['text-[9px]', 'text-[10px]', 'text-[11px]', 'text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-4xl', 'text-5xl', 'text-6xl'][bodyFontSizeIndex]}
