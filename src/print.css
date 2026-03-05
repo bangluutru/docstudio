@@ -2,37 +2,79 @@
    Print & Global Styles for DocStudio (Certificate/Report Module)
    ===================================================================== */
 @media print {
-  @page { size: A4 portrait; margin: 0; }
-  body { background: white !important; margin: 0; padding: 0; }
-  .no-print { display: none !important; }
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  body {
+    background: white !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
   #print-area {
-    width: 210mm !important; margin: 0 !important;
-    padding: 0 !important; display: block !important;
+    width: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+    /* Reset zoom transform that causes page-cutting */
+    transform: none !important;
+    gap: 0 !important;
   }
+
   .page-a4 {
-    width: 210mm !important; min-height: 297mm !important;
+    width: 210mm !important;
+    min-height: 297mm !important;
     height: auto !important;
-    margin: 0 !important; padding: 25mm !important;
-    box-shadow: none !important; border: none !important;
+    margin: 0 !important;
+    /* Don't force padding — let each page type use its own padding */
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
     page-break-after: always !important;
-    page-break-inside: auto !important;
+    page-break-inside: avoid !important;
     overflow: visible !important;
-    display: flex !important; flex-direction: column !important;
+    display: flex !important;
+    flex-direction: column !important;
   }
+
   /* Prevent blank page after last A4 page */
   .page-a4:last-child {
     page-break-after: auto !important;
   }
 }
 
-.page-a4 { box-sizing: border-box; }
+.page-a4 {
+  box-sizing: border-box;
+}
 
-.custom-scrollbar::-webkit-scrollbar { width: 5px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
 
-.page-font { font-family: 'Lora', Georgia, serif; }
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+.page-font {
+  font-family: 'Lora', Georgia, serif;
+}
 
 /* Smooth group-hover for page delete button */
-.page-a4 .no-print.absolute { transition: opacity 0.15s; }
-.page-a4:hover .no-print.absolute { opacity: 1 !important; }
+.page-a4 .no-print.absolute {
+  transition: opacity 0.15s;
+}
+
+.page-a4:hover .no-print.absolute {
+  opacity: 1 !important;
+}

@@ -22,7 +22,7 @@ import {
   ZoomOut,
   FileDown,
 } from 'lucide-react';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType } from 'docx';
 import { saveAs } from 'file-saver';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import UndoToast from './components/UndoToast';
