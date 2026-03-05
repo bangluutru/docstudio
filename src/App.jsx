@@ -663,7 +663,7 @@ const App = () => {
             />
 
             {/* Pages Canvas */}
-            <div id="print-area" className="flex flex-col gap-10 pb-24 items-center w-full" style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center', transition: 'transform 0.2s ease', ...(customFont ? { fontFamily: customFont } : {}) }}>
+            <div id="print-area" className={`flex flex-col gap-10 pb-24 items-center w-full ${customFont ? 'custom-font-active' : ''}`} style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center', transition: 'transform 0.2s ease', ...(customFont ? { '--custom-font': customFont } : {}) }}>
               {pages.length === 0 ? (
                 <div className="w-[210mm] h-[297mm] bg-white rounded-2xl shadow-sm border-2 border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-300 gap-5">
                   <FileText size={72} strokeWidth={1} />

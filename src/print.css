@@ -70,6 +70,13 @@
   font-family: 'Lora', Georgia, serif;
 }
 
+/* Custom font override — when --custom-font is set on a container,
+   ALL descendant elements inherit it, overriding Tailwind font-sans/font-serif */
+.custom-font-active,
+.custom-font-active * {
+  font-family: var(--custom-font) !important;
+}
+
 /* Smooth group-hover for page delete button */
 .page-a4 .no-print.absolute {
   transition: opacity 0.15s;

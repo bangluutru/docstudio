@@ -492,8 +492,8 @@ const LegalDocumentView = ({ displayLang, onLangChange }) => {
                     ) : (
                         <div
                             ref={printRef}
-                            className="legal-doc-print w-[210mm] bg-white shadow-[0_20px_60px_-10px_rgba(0,0,0,0.12)] border border-slate-100 rounded-sm"
-                            style={{ fontFamily: customFont || "'Times New Roman', Times, serif", padding: '20mm 25mm', transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center', transition: 'transform 0.2s ease' }}
+                            className={`legal-doc-print w-[210mm] bg-white shadow-[0_20px_60px_-10px_rgba(0,0,0,0.12)] border border-slate-100 rounded-sm ${customFont ? 'custom-font-active' : ''}`}
+                            style={{ fontFamily: customFont || "'Times New Roman', Times, serif", padding: '20mm 25mm', transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center', transition: 'transform 0.2s ease', ...(customFont ? { '--custom-font': customFont } : {}) }}
                         >
                             {/* Meta Header */}
                             {metaInfo && (

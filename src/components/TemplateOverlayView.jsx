@@ -657,12 +657,13 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                             className={`bg-white shadow-2xl transition-all print-target outline-none relative 
                             ${['text-[9px]', 'text-[10px]', 'text-[11px]', 'text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-4xl', 'text-5xl', 'text-6xl'][bodyFontSizeIndex]}
                             [&>div]:max-w-none [&>div]:w-full [&>div]:m-0 [&>div]:border-none [&>div]:shadow-none
-                            ${isEditing ? 'ring-4 ring-amber-400 border-amber-500' : ''}`}
+                            ${isEditing ? 'ring-4 ring-amber-400 border-amber-500' : ''}
+                            ${customFont ? 'custom-font-active' : ''}`}
                             style={{
                                 width: '210mm',
                                 minHeight: isHeightTrimmed ? 'auto' : '297mm',
                                 padding: '12mm',
-                                ...(customFont ? { fontFamily: customFont } : {}),
+                                ...(customFont ? { '--custom-font': customFont, fontFamily: customFont } : {}),
                             }}
                             contentEditable={isEditing}
                             suppressContentEditableWarning={true}
