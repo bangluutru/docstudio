@@ -662,6 +662,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                                 width: '210mm',
                                 minHeight: isHeightTrimmed ? 'auto' : '297mm',
                                 padding: '12mm',
+                                ...(customFont ? { fontFamily: customFont } : {}),
                             }}
                             contentEditable={isEditing}
                             suppressContentEditableWarning={true}
