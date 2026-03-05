@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType } from 'docx';
 import { saveAs } from 'file-saver';
+import DocToolbar from './DocToolbar';
 import { TEMPLATE_NOTEBOOKLM_PROMPT } from '../utils/prompts';
 
 // =====================================================================
@@ -631,52 +632,20 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                 <main className="flex-grow bg-slate-200 min-h-screen relative p-4 md:p-8 flex flex-col items-center">
 
                     {/* Floating Toolbar */}
-                    <div className="no-print w-full max-w-[210mm] mb-6 flex flex-wrap justify-between items-center gap-3 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-white/80 sticky top-[48px] z-[50]">
-                        <div className="flex items-center gap-2">
-                            <Languages size={15} className="text-slate-400" />
-                            <div className="flex gap-1">
-                                <button onClick={() => setCurrentLang('vn')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${currentLang === 'vn' ? 'bg-fuchsia-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>VN</button>
-                                <button onClick={() => setCurrentLang('en')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${currentLang === 'en' ? 'bg-fuchsia-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>EN</button>
-                                <button onClick={() => setCurrentLang('jp')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${currentLang === 'jp' ? 'bg-fuchsia-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}>JA</button>
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={() => setIsEditing(!isEditing)}
-                            className={`flex items-center gap-1.5 px-4 py-2 font-bold rounded-xl transition-all text-sm shadow-sm ${isEditing
-                                ? 'bg-amber-500 text-white shadow-amber-200'
-                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                                }`}
-                        >
-                            <FileText size={14} /> {isEditing ? 'Đang Sửa...' : 'Chỉnh Sửa'}
-                        </button>
-
-                        <button
-                            onClick={handlePrint}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-fuchsia-600 text-white font-bold rounded-xl shadow-lg hover:bg-fuchsia-700 transition-all active:scale-95 text-sm"
-                        >
-                            <Printer size={15} /> Xuất PDF / In
-                        </button>
-
-                        <button
-                            onClick={handleExportDocx}
-                            title="Export DOCX"
-                            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white font-bold rounded-xl shadow-md hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
-                        >
-                            <FileDown size={14} /> DOCX
-                        </button>
-
-                        {/* Zoom Controls */}
-                        <div className="flex items-center gap-1">
-                            <button onClick={() => setZoomLevel(z => Math.max(50, z - 10))} className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all" title="Zoom Out">
-                                <ZoomOut size={14} />
-                            </button>
-                            <span className="text-xs font-bold text-slate-500 min-w-[36px] text-center">{zoomLevel}%</span>
-                            <button onClick={() => setZoomLevel(z => Math.min(200, z + 10))} className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all" title="Zoom In">
-                                <ZoomIn size={14} />
-                            </button>
-                        </div>
-                    </div>
+                    <DocToolbar
+                        displayLang={currentLang}
+                        onLangChange={setCurrentLang}
+                        langOptions={['vn', 'en', 'jp']}
+                        accentColor="fuchsia"
+                        showEdit={true}
+                        isEditing={isEditing}
+                        onToggleEdit={() => setIsEditing(!isEditing)}
+                        zoomLevel={zoomLevel}
+                        onZoomChange={setZoomLevel}
+                        onExportDocx={handleExportDocx}
+                        onPrint={handlePrint}
+                        printLabel="PDF"
+                    />
 
                     {/* Document Canvas */}
                     <div className="flex flex-col gap-10 pb-24 items-center w-full" style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center', transition: 'transform 0.2s ease' }}>

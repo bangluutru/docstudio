@@ -36,6 +36,7 @@ import UserGuideView from './components/UserGuideView';
 import PageCard from './components/PageCard';
 import PromptHelper from './components/PromptHelper';
 import LongDocTranslatorView from './components/LongDocTranslatorView';
+import DocToolbar from './components/DocToolbar';
 import { CERT_PROMPT_TEXT, CERT_NOTEBOOKLM_PROMPT } from './utils/prompts';
 import { getLangVal } from './utils/lang';
 import { uiTranslations } from './utils/translations';
@@ -641,63 +642,21 @@ const App = () => {
           <main className="flex-grow bg-slate-200 min-h-screen relative p-4 md:p-8 flex flex-col items-center">
 
             {/* Floating Toolbar */}
-            <div className="no-print w-full max-w-[210mm] mb-6 flex flex-wrap justify-between items-center gap-3 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-white/80 sticky top-[48px] z-[50]">
-              <div className="flex items-center gap-2">
-                <Languages size={15} className="text-slate-400" />
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => setDisplayLang('vn')}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${displayLang === 'vn' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
-                  >VN</button>
-                  <button
-                    onClick={() => setDisplayLang('en')}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${displayLang === 'en' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
-                  >EN</button>
-                  <button
-                    onClick={() => setDisplayLang('jp')}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${displayLang === 'jp' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'}`}
-                  >JA</button>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setIsEditing(!isEditing)}
-                className={`flex items-center gap-1.5 px-4 py-2 font-bold rounded-xl transition-all text-sm shadow-sm ${isEditing
-                  ? 'bg-amber-500 text-white shadow-amber-200'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                  }`}
-              >
-                {isEditing ? <><Eye size={14} /> {t.previewBtn}</> : <><Edit3 size={14} /> {t.editBtn}</>}
-              </button>
-
-              <button
-                onClick={handlePrint}
-                disabled={pages.length === 0}
-                className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-              >
-                <Printer size={15} /> {t.printBtn}
-              </button>
-
-              <button
-                onClick={handleExportDocx}
-                disabled={pages.length === 0}
-                title="Export DOCX"
-                className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white font-bold rounded-xl shadow-md hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
-              >
-                <FileDown size={14} /> DOCX
-              </button>
-
-              {/* Zoom Controls */}
-              <div className="flex items-center gap-1">
-                <button onClick={() => setZoomLevel(z => Math.max(50, z - 10))} className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all" title="Zoom Out">
-                  <ZoomOut size={14} />
-                </button>
-                <span className="text-xs font-bold text-slate-500 min-w-[36px] text-center">{zoomLevel}%</span>
-                <button onClick={() => setZoomLevel(z => Math.min(200, z + 10))} className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all" title="Zoom In">
-                  <ZoomIn size={14} />
-                </button>
-              </div>
-            </div>
+            <DocToolbar
+              displayLang={displayLang}
+              onLangChange={setDisplayLang}
+              langOptions={['vn', 'en', 'jp']}
+              accentColor="indigo"
+              showEdit={true}
+              isEditing={isEditing}
+              onToggleEdit={() => setIsEditing(!isEditing)}
+              zoomLevel={zoomLevel}
+              onZoomChange={setZoomLevel}
+              onExportDocx={handleExportDocx}
+              onPrint={handlePrint}
+              disableActions={pages.length === 0}
+              printLabel="PDF"
+            />
 
             {/* Pages Canvas */}
             <div id="print-area" className="flex flex-col gap-10 pb-24 items-center w-full" style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center', transition: 'transform 0.2s ease' }}>

@@ -20,6 +20,7 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Tabl
 import { saveAs } from 'file-saver';
 import { ZoomIn, ZoomOut } from 'lucide-react';
 import PromptHelper from './PromptHelper';
+import DocToolbar from './DocToolbar';
 import { LONG_DOC_TRANS_PROMPT, LONG_DOC_NOTEBOOKLM_PROMPT } from '../utils/prompts';
 
 // =====================================================================
@@ -147,8 +148,8 @@ const FORMAT_STYLES = {
 // =====================================================================
 // Block renderer
 // =====================================================================
-const BlockRenderer = ({ block, lang, style }) => {
-    const fs = FORMAT_STYLES[style];
+const BlockRenderer = ({ block, lang, style, effectiveStyle, isEditing, onEdit }) => {
+    const fs = effectiveStyle || FORMAT_STYLES[style];
     const val = block[lang] || block.vn || block.en || block.ja || '';
 
     const baseStyle = {
@@ -320,6 +321,8 @@ const BlockRenderer = ({ block, lang, style }) => {
         default:
             return <p style={baseStyle}>{val}</p>;
     }
+
+    // Note: editing is handled at the PaginatedPages level, not inside BlockRenderer
 };
 
 
@@ -341,6 +344,8 @@ const LongDocTranslatorView = ({ displayLang: globalDisplayLang }) => {
     const [saveStatus, setSaveStatus] = useState('idle');
     const [promptSource, setPromptSource] = useState('gemini');
     const [zoomLevel, setZoomLevel] = useState(100);
+    const [isEditing, setIsEditing] = useState(false);
+    const [customFont, setCustomFont] = useState(null);
     const printRef = useRef(null);
 
     const t = ejvUiText[displayLang] || ejvUiText.vn;
@@ -544,6 +549,13 @@ const LongDocTranslatorView = ({ displayLang: globalDisplayLang }) => {
             : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'
         }`;
 
+    // Compute effective FORMAT_STYLES with custom font override
+    const effectiveFormatStyle = useMemo(() => {
+        const base = FORMAT_STYLES[formatStyle];
+        if (!customFont) return base;
+        return { ...base, fontFamily: customFont };
+    }, [formatStyle, customFont]);
+
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900">
             {/* ================= LEFT PANEL ================= */}
@@ -733,60 +745,24 @@ const LongDocTranslatorView = ({ displayLang: globalDisplayLang }) => {
                 `}</style>
 
                 {/* Floating Toolbar */}
-                <div className="no-print w-full max-w-[210mm] mb-6 flex flex-nowrap justify-between items-center gap-2 bg-white/90 backdrop-blur-md px-3 py-2 rounded-2xl shadow-lg border border-white/80 sticky top-[48px] z-[50]">
-
-                    {/* Language Selector */}
-                    <div className="flex items-center gap-1.5">
-                        <Languages size={14} className="text-slate-400" />
-                        <div className="flex gap-0.5">
-                            <button onClick={() => setDisplayLang('vn')} className={langBtnClass('vn')}>VN</button>
-                            <button onClick={() => setDisplayLang('en')} className={langBtnClass('en')}>EN</button>
-                            <button onClick={() => setDisplayLang('ja')} className={langBtnClass('ja')}>JA</button>
-                        </div>
-                    </div>
-
-                    {/* Format Buttons */}
-                    <div className="flex items-center gap-1">
-                        <Type size={13} className="text-slate-400" />
-                        <button onClick={() => setFormatStyle('standard')} className={fmtBtnClass('standard')}>
-                            <RotateCcw size={11} /> {t.formatDefault}
-                        </button>
-                        <button onClick={() => setFormatStyle('administrative')} className={fmtBtnClass('administrative')}>
-                            <Landmark size={11} /> {t.formatAdmin}
-                        </button>
-                    </div>
-
-                    {/* Zoom Controls */}
-                    <div className="flex items-center gap-0.5">
-                        <button onClick={() => setZoomLevel(z => Math.max(50, z - 10))} className="p-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all" title="Zoom Out">
-                            <ZoomOut size={13} />
-                        </button>
-                        <span className="text-[10px] font-bold text-slate-500 min-w-[30px] text-center">{zoomLevel}%</span>
-                        <button onClick={() => setZoomLevel(z => Math.min(200, z + 10))} className="p-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 transition-all" title="Zoom In">
-                            <ZoomIn size={13} />
-                        </button>
-                    </div>
-
-                    {/* Export Buttons */}
-                    <div className="flex items-center gap-1.5">
-                        <button
-                            onClick={handleExportDocx}
-                            disabled={blocks.length === 0}
-                            title={t.exportDocx}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white font-bold rounded-xl shadow-md hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
-                        >
-                            <FileDown size={14} /> DOCX
-                        </button>
-                        <button
-                            onClick={handlePrint}
-                            disabled={blocks.length === 0}
-                            title={t.printBtn}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-teal-600 text-white font-bold rounded-xl shadow-md hover:bg-teal-700 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
-                        >
-                            <Printer size={14} /> PDF
-                        </button>
-                    </div>
-                </div>
+                <DocToolbar
+                    displayLang={displayLang}
+                    onLangChange={setDisplayLang}
+                    langOptions={['vn', 'en', 'ja']}
+                    accentColor="teal"
+                    showFontPicker={true}
+                    currentFont={customFont || FORMAT_STYLES[formatStyle].fontFamily}
+                    onFontChange={setCustomFont}
+                    showEdit={true}
+                    isEditing={isEditing}
+                    onToggleEdit={() => setIsEditing(!isEditing)}
+                    zoomLevel={zoomLevel}
+                    onZoomChange={setZoomLevel}
+                    onExportDocx={handleExportDocx}
+                    onPrint={handlePrint}
+                    disableActions={blocks.length === 0}
+                    printLabel="PDF"
+                />
 
                 {/* Document Canvas */}
                 <div id="print-area" ref={printRef} className="flex flex-col gap-8 pb-24 items-center w-full" style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center', transition: 'transform 0.2s ease' }}>
@@ -800,6 +776,14 @@ const LongDocTranslatorView = ({ displayLang: globalDisplayLang }) => {
                             blocks={blocks}
                             lang={displayLang}
                             formatStyle={formatStyle}
+                            effectiveStyle={effectiveFormatStyle}
+                            isEditing={isEditing}
+                            onBlockEdit={(idx, newVal) => {
+                                const newBlocks = [...blocks];
+                                const lang = displayLang === 'ja' ? 'ja' : displayLang;
+                                newBlocks[idx] = { ...newBlocks[idx], [lang]: newVal };
+                                saveBlocks(newBlocks);
+                            }}
                         />
                     )}
                 </div>
@@ -817,7 +801,7 @@ const PX_PER_MM = 3.7795; // 1mm ≈ 3.7795px at 96dpi
 const SAFETY_BUFFER_MM = 5; // Safety buffer to prevent text clipping at page edges
 const PAGE_CONTENT_HEIGHT_PX = (PAGE_CONTENT_HEIGHT_MM - SAFETY_BUFFER_MM) * PX_PER_MM;
 
-const PaginatedPages = ({ blocks, lang, formatStyle }) => {
+const PaginatedPages = ({ blocks, lang, formatStyle, effectiveStyle, isEditing, onBlockEdit }) => {
     const [pages, setPages] = useState([]);
     const measureRef = useRef(null);
 
@@ -911,12 +895,36 @@ const PaginatedPages = ({ blocks, lang, formatStyle }) => {
                     {/* Page content */}
                     <div style={{ minHeight: page.oversized ? undefined : `${PAGE_CONTENT_HEIGHT_MM}mm`, maxHeight: page.oversized ? undefined : `${PAGE_CONTENT_HEIGHT_MM}mm`, overflow: 'visible' }}>
                         {page.indices.map((blockIdx) => (
-                            <BlockRenderer
-                                key={blockIdx}
-                                block={blocks[blockIdx]}
-                                lang={lang}
-                                style={formatStyle}
-                            />
+                            isEditing ? (
+                                <div key={blockIdx} className="group relative">
+                                    <BlockRenderer
+                                        block={blocks[blockIdx]}
+                                        lang={lang}
+                                        style={formatStyle}
+                                        effectiveStyle={effectiveStyle}
+                                    />
+                                    <div
+                                        className="absolute inset-0 cursor-text opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={() => {
+                                            const val = blocks[blockIdx][lang] || blocks[blockIdx].vn || blocks[blockIdx].en || blocks[blockIdx].ja || '';
+                                            const newVal = prompt('Edit text:', Array.isArray(val) ? val.join('\n') : val);
+                                            if (newVal !== null && onBlockEdit) {
+                                                onBlockEdit(blockIdx, blocks[blockIdx].type === 'ul' || blocks[blockIdx].type === 'ol' ? newVal.split('\n') : newVal);
+                                            }
+                                        }}
+                                    >
+                                        <div className="absolute inset-0 border-2 border-dashed border-amber-400 rounded bg-amber-50/30" />
+                                    </div>
+                                </div>
+                            ) : (
+                                <BlockRenderer
+                                    key={blockIdx}
+                                    block={blocks[blockIdx]}
+                                    lang={lang}
+                                    style={formatStyle}
+                                    effectiveStyle={effectiveStyle}
+                                />
+                            )
                         ))}
                     </div>
 
