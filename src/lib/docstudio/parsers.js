@@ -183,3 +183,162 @@ export function parseMarkdownToSchema(markdown) {
 
     return { sections };
 }
+
+/**
+ * Apply accepted format suggestions to generate a schema.
+ * Called after user reviews and accepts the suggestions from formatSuggester.
+ * @param {Array} suggestions - Array of accepted suggestions with suggestedType
+ * @returns {Object} Normalized schema compatible with DocStudioPreview
+ */
+export function applyFormatSuggestions(suggestions) {
+    if (!suggestions || suggestions.length === 0) return { sections: [] };
+
+    const sections = [];
+    let currentSection = {
+        id: `sec_${generateId()}`,
+        type: 'body',
+        title: '',
+        blocks: []
+    };
+
+    let listBuffer = [];
+
+    const flushList = () => {
+        if (listBuffer.length > 0) {
+            currentSection.blocks.push({
+                id: `blk_${generateId()}`,
+                type: 'list',
+                items: [...listBuffer]
+            });
+            listBuffer = [];
+        }
+    };
+
+    // Group table_row suggestions into tables
+    let tableBuffer = [];
+    const flushTable = () => {
+        if (tableBuffer.length > 0) {
+            const headers = tableBuffer[0];
+            const dataRows = tableBuffer.slice(1).filter(row => !/^[\s|:-]+$/.test(row));
+            const parseRow = (text) => text.split('|').map(c => c.trim()).filter(Boolean);
+
+            currentSection.blocks.push({
+                id: `blk_${generateId()}`,
+                type: 'table',
+                headers: parseRow(headers),
+                rows: dataRows.map(r => parseRow(r))
+            });
+            tableBuffer = [];
+        }
+    };
+
+    suggestions.forEach(sug => {
+        const { text, suggestedType } = sug;
+
+        // If we hit a non-table/non-list, flush first
+        if (suggestedType !== 'list_item') flushList();
+        if (suggestedType !== 'table_row') flushTable();
+
+        switch (suggestedType) {
+            case 'heading_1':
+                currentSection.blocks.push({
+                    id: `blk_${generateId()}`,
+                    type: 'heading',
+                    level: 1,
+                    text
+                });
+                break;
+
+            case 'heading_2':
+                currentSection.blocks.push({
+                    id: `blk_${generateId()}`,
+                    type: 'heading',
+                    level: 2,
+                    text
+                });
+                break;
+
+            case 'heading_3':
+                currentSection.blocks.push({
+                    id: `blk_${generateId()}`,
+                    type: 'heading',
+                    level: 3,
+                    text
+                });
+                break;
+
+            case 'body_text':
+                currentSection.blocks.push({
+                    id: `blk_${generateId()}`,
+                    type: 'paragraph',
+                    text
+                });
+                break;
+
+            case 'list_item':
+                listBuffer.push(text);
+                break;
+
+            case 'quote':
+                currentSection.blocks.push({
+                    id: `blk_${generateId()}`,
+                    type: 'quote',
+                    text
+                });
+                break;
+
+            case 'signature':
+                currentSection.blocks.push({
+                    id: `blk_${generateId()}`,
+                    type: 'signature'
+                });
+                break;
+
+            case 'date_field':
+                currentSection.blocks.push({
+                    id: `blk_${generateId()}`,
+                    type: 'date_field',
+                    text
+                });
+                break;
+
+            case 'closing':
+                currentSection.blocks.push({
+                    id: `blk_${generateId()}`,
+                    type: 'closing',
+                    text
+                });
+                break;
+
+            case 'page_break':
+                sections.push(currentSection);
+                currentSection = {
+                    id: `sec_${generateId()}`,
+                    type: 'body',
+                    title: '',
+                    blocks: []
+                };
+                break;
+
+            case 'table_row':
+                tableBuffer.push(text);
+                break;
+
+            default:
+                currentSection.blocks.push({
+                    id: `blk_${generateId()}`,
+                    type: 'paragraph',
+                    text
+                });
+        }
+    });
+
+    flushList();
+    flushTable();
+
+    if (currentSection.blocks.length > 0) {
+        sections.push(currentSection);
+    }
+
+    return { sections };
+}

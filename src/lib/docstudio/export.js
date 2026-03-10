@@ -104,6 +104,22 @@ export async function exportDocx(schema, filename = 'DocStudio_Export.docx') {
                     }));
                     break;
 
+                case 'date_field':
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: block.text, italics: true, size: 20, color: '64748b' })],
+                        alignment: 'right',
+                        spacing: { before: 100, after: 100 }
+                    }));
+                    break;
+
+                case 'closing':
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: block.text, bold: true, size: 22 })],
+                        alignment: 'right',
+                        spacing: { before: 100, after: 100 }
+                    }));
+                    break;
+
                 case 'page_break':
                     children.push(new Paragraph({ pageBreakBefore: true }));
                     break;

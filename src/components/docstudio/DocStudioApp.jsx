@@ -1,10 +1,13 @@
 import { useState, useRef } from 'react';
-import { LayoutTemplate, Layers, User, PlusCircle, Search, MoreVertical, FileText, Download, Printer, Upload, Sparkles, ArrowLeft } from 'lucide-react';
+import { LayoutTemplate, Layers, User, PlusCircle, Search, MoreVertical, FileText, Download, Printer, Upload, Sparkles, ArrowLeft, FileUp } from 'lucide-react';
 import { getLangVal } from '../../utils/lang';
-import { parseMarkdownToSchema } from '../../lib/docstudio/parsers';
+import { parseMarkdownToSchema, applyFormatSuggestions } from '../../lib/docstudio/parsers';
 import { validateSchema } from '../../lib/docstudio/validationEngine';
 import { exportDocx } from '../../lib/docstudio/export';
+import { analyzeAndSuggest } from '../../lib/docstudio/formatSuggester';
+import { importDocx } from '../../lib/docstudio/docxImporter';
 import DocStudioPreview from './DocStudioPreview';
+import FormatSuggestionPanel from './FormatSuggestionPanel';
 
 // =====================================================================
 // i18n translations for DocStudio Tab 9
@@ -27,15 +30,23 @@ const dsTranslations = {
         editorTitle: 'Tài liệu mới',
         editorSubtitle: 'Đang soạn: Công văn (Bản nháp)',
         generatePreview: 'Tạo bản xem trước',
-        rawInputLabel: 'NỘI DUNG THÔ (MARKDOWN)',
-        rawInputPlaceholder: '# Báo cáo kết quả...\n\nNhập nội dung vào đây...',
-        previewEmpty: 'Bấm "Tạo bản xem trước" để xem kết quả định dạng tại đây.',
+        rawInputLabel: 'NỘI DUNG THÔ',
+        rawInputPlaceholder: '# Báo cáo kết quả...\n\nNhập nội dung vào đây hoặc tải file lên...',
+        previewEmpty: 'Tải file lên hoặc nhập nội dung, sau đó bấm "Phân tích & Gợi ý" để định dạng tự động.',
         validationLabel: 'Vấn đề phát hiện',
         noteLabel: 'Lưu ý',
         uploadBtn: 'Tải file lên',
-        uploadHint: 'Hỗ trợ .txt, .md — Ứng dụng sẽ tự định dạng lại',
+        uploadHint: 'Hỗ trợ .txt, .md, .doc, .docx',
         backToDash: 'Quay lại',
-        uploadSuccess: 'Đã tải file thành công! Bấm "Tạo bản xem trước" để định dạng.',
+        uploadSuccess: 'Đã tải file thành công!',
+        analyzeBtn: 'Phân tích & Gợi ý',
+        analyzingMsg: 'Đang phân tích văn bản...',
+        panelTitle: 'Gợi ý định dạng',
+        acceptAll: 'Chấp nhận tất cả',
+        hint: 'Đổi kiểu bằng dropdown, sau đó bấm "Chấp nhận tất cả".',
+        high: 'Cao', medium: 'Trung bình', low: 'Thấp',
+        formatApplied: 'Đã áp dụng định dạng! Xem bản xem trước bên phải.',
+        importingDocx: 'Đang đọc file DOCX...',
     },
     en: {
         sidebarTitle: 'DocStudio',
@@ -54,15 +65,23 @@ const dsTranslations = {
         editorTitle: 'New Document',
         editorSubtitle: 'Editing: Official Letter (Draft)',
         generatePreview: 'Generate Preview',
-        rawInputLabel: 'RAW INPUT (MARKDOWN)',
-        rawInputPlaceholder: '# Report Title...\n\nType content here...',
-        previewEmpty: 'Click "Generate Preview" to view the document rendering here.',
+        rawInputLabel: 'RAW INPUT',
+        rawInputPlaceholder: '# Report Title...\n\nType content here or upload a file...',
+        previewEmpty: 'Upload a file or type content, then click "Analyze & Suggest" for auto-formatting.',
         validationLabel: 'Validation Issues',
         noteLabel: 'Note',
         uploadBtn: 'Upload File',
-        uploadHint: 'Supports .txt, .md — App will auto-format',
+        uploadHint: 'Supports .txt, .md, .doc, .docx',
         backToDash: 'Back',
-        uploadSuccess: 'File uploaded! Click "Generate Preview" to format.',
+        uploadSuccess: 'File uploaded successfully!',
+        analyzeBtn: 'Analyze & Suggest',
+        analyzingMsg: 'Analyzing text...',
+        panelTitle: 'Format Suggestions',
+        acceptAll: 'Accept All',
+        hint: 'Change format type via dropdown, then click "Accept All".',
+        high: 'High', medium: 'Medium', low: 'Low',
+        formatApplied: 'Format applied! Check the preview on the right.',
+        importingDocx: 'Reading DOCX file...',
     },
     jp: {
         sidebarTitle: 'DocStudio',
@@ -81,15 +100,23 @@ const dsTranslations = {
         editorTitle: '新しいドキュメント',
         editorSubtitle: '編集中: 公式書簡（下書き）',
         generatePreview: 'プレビュー生成',
-        rawInputLabel: '元のテキスト (MARKDOWN)',
-        rawInputPlaceholder: '# レポートタイトル...\n\nここに内容を入力...',
-        previewEmpty: '「プレビュー生成」をクリックしてドキュメントプレビューを表示。',
+        rawInputLabel: '元のテキスト',
+        rawInputPlaceholder: '# レポートタイトル...\n\nここに内容を入力またはファイルをアップロード...',
+        previewEmpty: 'ファイルをアップロードまたは入力後、「分析 & 提案」で自動フォーマット。',
         validationLabel: '検証結果',
         noteLabel: '注意',
-        uploadBtn: 'ファイルをアップロード',
-        uploadHint: '.txt, .md 対応 — 自動整形します',
+        uploadBtn: 'ファイルアップロード',
+        uploadHint: '.txt, .md, .doc, .docx 対応',
         backToDash: '戻る',
-        uploadSuccess: 'ファイルがアップロードされました！「プレビュー生成」をクリックして整形。',
+        uploadSuccess: 'ファイルがアップロードされました！',
+        analyzeBtn: '分析 & 提案',
+        analyzingMsg: 'テキストを分析中...',
+        panelTitle: 'フォーマット提案',
+        acceptAll: 'すべて適用',
+        hint: 'ドロップダウンで種類を変更し、「すべて適用」をクリック。',
+        high: '高', medium: '中', low: '低',
+        formatApplied: 'フォーマット適用済み！右側のプレビューをご確認ください。',
+        importingDocx: 'DOCXファイルを読み込み中...',
     },
 };
 
@@ -100,12 +127,15 @@ const MOCK_DOCS = [
 ];
 
 export default function DocStudioApp({ displayLang }) {
-    const [activeSubTab, setActiveSubTab] = useState('dashboard'); // dashboard | templates | editor
+    const [activeSubTab, setActiveSubTab] = useState('dashboard');
     const [searchQuery, setSearchQuery] = useState('');
     const [rawInput, setRawInput] = useState('');
     const [generatedSchema, setGeneratedSchema] = useState(null);
     const [validationIssues, setValidationIssues] = useState([]);
-    const [uploadMessage, setUploadMessage] = useState('');
+    const [statusMessage, setStatusMessage] = useState('');
+    const [statusType, setStatusType] = useState('success'); // success | info | error
+    const [suggestions, setSuggestions] = useState([]);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
     const fileInputRef = useRef(null);
 
     const t = dsTranslations[displayLang] || dsTranslations.vn;
@@ -115,39 +145,99 @@ export default function DocStudioApp({ displayLang }) {
         return doc[key] || doc.title_vn || doc.title_en;
     };
 
+    // Analyze text and generate suggestions
+    const handleAnalyze = () => {
+        if (!rawInput.trim()) return;
+        setIsAnalyzing(true);
+        setStatusMessage(t.analyzingMsg);
+        setStatusType('info');
+
+        // Small delay for UX feel
+        setTimeout(() => {
+            const results = analyzeAndSuggest(rawInput);
+            setSuggestions(results);
+            setIsAnalyzing(false);
+            setStatusMessage('');
+            // Clear previous schema so user knows they need to accept
+            setGeneratedSchema(null);
+            setValidationIssues([]);
+        }, 400);
+    };
+
+    // Update a single suggestion's type
+    const handleUpdateSuggestion = (id, newType) => {
+        setSuggestions(prev => prev.map(s => s.id === id ? { ...s, suggestedType: newType } : s));
+    };
+
+    // Accept all suggestions → generate schema
+    const handleAcceptAll = () => {
+        const schema = applyFormatSuggestions(suggestions);
+        setGeneratedSchema(schema);
+        const issues = validateSchema(schema, 'Official Letter');
+        setValidationIssues(issues);
+        setSuggestions([]); // Clear suggestions after accepting
+        setStatusMessage(t.formatApplied);
+        setStatusType('success');
+    };
+
+    // Direct preview from raw markdown (legacy flow)
     const handleGeneratePreview = () => {
         const schema = parseMarkdownToSchema(rawInput);
         setGeneratedSchema(schema);
         const issues = validateSchema(schema, 'Official Letter');
         setValidationIssues(issues);
-        setUploadMessage('');
+        setStatusMessage('');
+        setSuggestions([]);
     };
 
-    const handleFileUpload = (e) => {
+    // File upload handler — supports .txt, .md, .doc, .docx
+    const handleFileUpload = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const content = event.target.result;
-            setRawInput(content);
-            setUploadMessage(t.uploadSuccess);
-            // Auto-generate preview after upload
-            setTimeout(() => {
-                const schema = parseMarkdownToSchema(content);
-                setGeneratedSchema(schema);
-                const issues = validateSchema(schema, 'Official Letter');
-                setValidationIssues(issues);
-            }, 300);
-        };
-        reader.readAsText(file);
-        // Reset file input so the same file can be re-uploaded
+        const ext = file.name.split('.').pop().toLowerCase();
+
+        if (ext === 'docx' || ext === 'doc') {
+            // DOCX import via mammoth
+            setStatusMessage(t.importingDocx);
+            setStatusType('info');
+            try {
+                const text = await importDocx(file);
+                setRawInput(text);
+                setStatusMessage(t.uploadSuccess);
+                setStatusType('success');
+                // Auto-trigger analysis
+                setTimeout(() => {
+                    const results = analyzeAndSuggest(text);
+                    setSuggestions(results);
+                }, 300);
+            } catch (err) {
+                setStatusMessage(err.message || 'Import failed');
+                setStatusType('error');
+            }
+        } else {
+            // Plain text (.txt, .md)
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const content = event.target.result;
+                setRawInput(content);
+                setStatusMessage(t.uploadSuccess);
+                setStatusType('success');
+                // Auto-trigger analysis
+                setTimeout(() => {
+                    const results = analyzeAndSuggest(content);
+                    setSuggestions(results);
+                }, 300);
+            };
+            reader.readAsText(file);
+        }
+
         e.target.value = '';
     };
 
     return (
         <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 w-full text-slate-800 font-sans">
-            {/* Sidebar for DocStudio Module */}
+            {/* Sidebar */}
             <aside className="no-print w-full md:w-64 bg-slate-900 text-slate-200 border-r border-slate-800 shrink-0 sticky top-0 h-screen overflow-y-auto">
                 <div className="p-5 border-b border-white/10 shrink-0">
                     <div className="flex items-center gap-3 mb-2">
@@ -165,21 +255,17 @@ export default function DocStudioApp({ displayLang }) {
                 <nav className="p-3 space-y-1">
                     <button
                         onClick={() => setActiveSubTab('dashboard')}
-                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${activeSubTab === 'dashboard' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'
-                            }`}
+                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${activeSubTab === 'dashboard' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                     >
                         <Layers size={16} /> {t.navDocs}
                     </button>
                     <button
                         onClick={() => setActiveSubTab('templates')}
-                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${activeSubTab === 'templates' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'
-                            }`}
+                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${activeSubTab === 'templates' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                     >
                         <LayoutTemplate size={16} /> {t.navTemplates}
                     </button>
                 </nav>
-
-                {/* User Info (Bottom of sidebar) */}
                 <div className="absolute flex-col flex bottom-0 w-full p-4 border-t border-white/10 bg-slate-900/80 backdrop-blur-md">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
@@ -193,9 +279,10 @@ export default function DocStudioApp({ displayLang }) {
                 </div>
             </aside>
 
-            {/* Main Content Area */}
+            {/* Main Content */}
             <main className="flex-1 overflow-y-auto bg-slate-50 p-6 relative">
                 <div className="max-w-5xl mx-auto">
+                    {/* ── Dashboard ── */}
                     {activeSubTab === 'dashboard' && (
                         <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <header className="mb-8 flex justify-between items-end">
@@ -210,18 +297,13 @@ export default function DocStudioApp({ displayLang }) {
                                     <PlusCircle size={16} /> {t.createDoc}
                                 </button>
                             </header>
-
                             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                                 <div className="p-4 border-b border-slate-100 flex gap-4">
                                     <div className="relative flex-1">
                                         <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
-                                        <input
-                                            type="text"
-                                            placeholder={t.searchPlaceholder}
-                                            value={searchQuery}
+                                        <input type="text" placeholder={t.searchPlaceholder} value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                                        />
+                                            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
                                     </div>
                                 </div>
                                 <div className="divide-y divide-slate-100">
@@ -234,19 +316,14 @@ export default function DocStudioApp({ displayLang }) {
                                                 <div>
                                                     <h3 className="font-bold text-slate-800 text-sm">{getDocTitle(doc)}</h3>
                                                     <div className="flex items-center gap-2 mt-0.5">
-                                                        <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                                                            {doc.type}
-                                                        </span>
+                                                        <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">{doc.type}</span>
                                                         <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
                                                         <span className="text-xs text-slate-400">{t.updated} {doc.updatedAt}</span>
                                                     </div>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4">
-                                                <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide
-                                                    ${doc.status === 'DRAFT' ? 'bg-slate-100 text-slate-500' :
-                                                        doc.status === 'GENERATED' ? 'bg-blue-50 text-blue-600' :
-                                                            'bg-emerald-50 text-emerald-600'}`}>
+                                                <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide ${doc.status === 'DRAFT' ? 'bg-slate-100 text-slate-500' : doc.status === 'GENERATED' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
                                                     {doc.status}
                                                 </span>
                                                 <button className="text-slate-400 hover:text-slate-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -260,6 +337,7 @@ export default function DocStudioApp({ displayLang }) {
                         </div>
                     )}
 
+                    {/* ── Templates ── */}
                     {activeSubTab === 'templates' && (
                         <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
                             <header className="mb-8">
@@ -267,7 +345,6 @@ export default function DocStudioApp({ displayLang }) {
                                 <p className="text-slate-500 text-sm mt-1">{t.templateSubtitle}</p>
                             </header>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {/* Dummy Templates */}
                                 {['Official Letter', 'Meeting Minutes', 'Contract'].map((template) => (
                                     <div key={template} className="bg-white border border-slate-200 p-5 rounded-xl hover:shadow-md transition-shadow cursor-pointer group">
                                         <div className="w-10 h-10 bg-slate-100 text-slate-500 rounded-lg flex items-center justify-center mb-4 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
@@ -280,15 +357,15 @@ export default function DocStudioApp({ displayLang }) {
                             </div>
                         </div>
                     )}
+
+                    {/* ── Editor ── */}
                     {activeSubTab === 'editor' && (
                         <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 flex flex-col h-[calc(100vh-3rem)]">
-                            <header className="mb-4 flex justify-between items-center shrink-0">
+                            {/* Toolbar */}
+                            <header className="mb-3 flex justify-between items-center shrink-0">
                                 <div className="flex items-center gap-3">
-                                    <button
-                                        onClick={() => setActiveSubTab('dashboard')}
-                                        className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                                        title={t.backToDash}
-                                    >
+                                    <button onClick={() => setActiveSubTab('dashboard')}
+                                        className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors" title={t.backToDash}>
                                         <ArrowLeft size={18} />
                                     </button>
                                     <div>
@@ -296,41 +373,30 @@ export default function DocStudioApp({ displayLang }) {
                                         <p className="text-slate-500 text-xs mt-0.5">{t.editorSubtitle}</p>
                                     </div>
                                 </div>
-                                <div className="flex gap-2">
-                                    {/* Hidden file input */}
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept=".txt,.md,.text,.markdown"
-                                        onChange={handleFileUpload}
-                                        className="hidden"
-                                    />
-                                    <button
-                                        onClick={() => fileInputRef.current?.click()}
+                                <div className="flex gap-2 flex-wrap justify-end">
+                                    <input ref={fileInputRef} type="file" accept=".txt,.md,.text,.markdown,.doc,.docx"
+                                        onChange={handleFileUpload} className="hidden" />
+                                    <button onClick={() => fileInputRef.current?.click()}
                                         className="px-3 py-1.5 bg-white border border-indigo-200 hover:bg-indigo-50 text-indigo-600 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all"
-                                        title={t.uploadHint}
-                                    >
+                                        title={t.uploadHint}>
                                         <Upload size={14} /> {t.uploadBtn}
                                     </button>
-                                    <button
-                                        onClick={handleGeneratePreview}
-                                        className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold rounded-lg transition-all"
-                                    >
-                                        <span className="flex items-center gap-1.5"><Sparkles size={14} /> {t.generatePreview}</span>
+                                    <button onClick={handleAnalyze} disabled={!rawInput.trim() || isAnalyzing}
+                                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-sm">
+                                        <Sparkles size={14} /> {t.analyzeBtn}
                                     </button>
-
+                                    <button onClick={handleGeneratePreview} disabled={!rawInput.trim()}
+                                        className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-slate-600 text-xs font-bold rounded-lg transition-all">
+                                        {t.generatePreview}
+                                    </button>
                                     {generatedSchema && (
                                         <>
-                                            <button
-                                                onClick={() => window.print()}
-                                                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-sm"
-                                            >
+                                            <button onClick={() => window.print()}
+                                                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-sm">
                                                 <Printer size={14} /> PDF
                                             </button>
-                                            <button
-                                                onClick={() => exportDocx(generatedSchema, 'DocStudio_Export.docx')}
-                                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-sm"
-                                            >
+                                            <button onClick={() => exportDocx(generatedSchema, 'DocStudio_Export.docx')}
+                                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-sm">
                                                 <Download size={14} /> DOCX
                                             </button>
                                         </>
@@ -338,33 +404,54 @@ export default function DocStudioApp({ displayLang }) {
                                 </div>
                             </header>
 
-                            {/* Upload success message */}
-                            {uploadMessage && (
-                                <div className="mb-3 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 font-medium flex items-center gap-2 shrink-0">
-                                    <Sparkles size={14} className="text-emerald-500" />
-                                    {uploadMessage}
+                            {/* Status message */}
+                            {statusMessage && (
+                                <div className={`mb-3 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 shrink-0 ${statusType === 'success' ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' :
+                                    statusType === 'error' ? 'bg-red-50 border border-red-200 text-red-700' :
+                                        'bg-blue-50 border border-blue-200 text-blue-700'}`}>
+                                    {statusType === 'info' ? <Sparkles size={14} className="animate-spin text-blue-500" /> : <Sparkles size={14} />}
+                                    {statusMessage}
                                 </div>
                             )}
 
+                            {/* Main editor area */}
                             <div className="flex-1 flex gap-4 min-h-0">
-                                {/* Left: Editor + Issues */}
-                                <div className="w-1/2 flex flex-col gap-4 min-h-0">
-                                    <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                                        <div className="p-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                                {/* Left: Editor + Suggestions + Validation */}
+                                <div className="w-1/2 flex flex-col gap-3 min-h-0">
+                                    {/* Textarea */}
+                                    <div className={`flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm ${suggestions.length > 0 ? 'h-1/3' : 'flex-1'}`}>
+                                        <div className="p-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between shrink-0">
                                             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t.rawInputLabel}</span>
                                             <span className="text-[10px] text-slate-400">{t.uploadHint}</span>
                                         </div>
-                                        <textarea
-                                            value={rawInput}
-                                            onChange={(e) => setRawInput(e.target.value)}
+                                        <textarea value={rawInput} onChange={(e) => setRawInput(e.target.value)}
                                             className="flex-1 p-4 resize-none outline-none font-mono text-sm text-slate-700 custom-scrollbar"
-                                            placeholder={t.rawInputPlaceholder}
-                                        />
+                                            placeholder={t.rawInputPlaceholder} />
                                     </div>
+
+                                    {/* Format Suggestion Panel */}
+                                    {suggestions.length > 0 && (
+                                        <div className="flex-1 min-h-0">
+                                            <FormatSuggestionPanel
+                                                suggestions={suggestions}
+                                                onUpdateSuggestion={handleUpdateSuggestion}
+                                                onAcceptAll={handleAcceptAll}
+                                                displayLang={displayLang}
+                                                i18n={{
+                                                    panelTitle: t.panelTitle,
+                                                    acceptAll: t.acceptAll,
+                                                    hint: t.hint,
+                                                    high: t.high,
+                                                    medium: t.medium,
+                                                    low: t.low,
+                                                }}
+                                            />
+                                        </div>
+                                    )}
 
                                     {/* Validation Panel */}
                                     {validationIssues.length > 0 && (
-                                        <div className="h-48 bg-white border border-rose-200 rounded-xl shadow-sm overflow-hidden flex flex-col shrink-0">
+                                        <div className="h-40 bg-white border border-rose-200 rounded-xl shadow-sm overflow-hidden flex flex-col shrink-0">
                                             <div className="p-2.5 bg-rose-50 border-b border-rose-100 flex items-center gap-2 text-rose-700 font-bold text-xs uppercase tracking-wider">
                                                 <Layers size={14} /> {t.validationLabel} ({validationIssues.length})
                                             </div>
@@ -384,14 +471,15 @@ export default function DocStudioApp({ displayLang }) {
                                         </div>
                                     )}
                                 </div>
+
                                 {/* Right: Preview */}
                                 <div className="w-1/2 bg-slate-200 border border-slate-300 rounded-xl overflow-y-auto p-4 flex justify-center custom-scrollbar">
                                     {generatedSchema ? (
                                         <DocStudioPreview schema={generatedSchema} />
                                     ) : (
                                         <div className="bg-white w-full max-w-[210mm] min-h-[297mm] shadow-lg p-10 flex flex-col items-center justify-center">
-                                            <Layers size={48} className="text-slate-200 mb-4" />
-                                            <p className="text-slate-400 text-center italic">{t.previewEmpty}</p>
+                                            <FileUp size={48} className="text-slate-200 mb-4" />
+                                            <p className="text-slate-400 text-center italic text-sm max-w-xs">{t.previewEmpty}</p>
                                         </div>
                                     )}
                                 </div>

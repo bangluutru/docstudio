@@ -79,6 +79,20 @@ const BlockRenderer = ({ block }) => {
         case 'page_break':
             return <div className="hidden print:block" style={{ pageBreakAfter: 'always' }} />;
 
+        case 'date_field':
+            return (
+                <p className="text-sm text-slate-500 italic text-right mb-4 mt-2">
+                    {block.text}
+                </p>
+            );
+
+        case 'closing':
+            return (
+                <p className="text-sm font-semibold text-slate-700 text-right mb-2 uppercase tracking-wide">
+                    {block.text}
+                </p>
+            );
+
         default:
             return <div className="text-red-500 text-xs p-2 border border-red-200 bg-red-50 mb-2">Unsupported block: {block.type}</div>;
     }
