@@ -3,14 +3,46 @@
  * Lazy-loads the docx library to generate Word documents from the Schema.
  */
 
-export async function exportDocx(schema, filename = 'DocStudio_Export.docx') {
+export async function exportDocx(schema, filename = 'DocStudio_Export.docx', layoutConfig = null) {
     if (!schema || !schema.sections || schema.sections.length === 0) {
         throw new Error('Schema is empty. Nothing to export.');
     }
 
     // Lazy load heavy dependencies
-    const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, BorderStyle, WidthType } = await import('docx');
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, BorderStyle, WidthType, Header, Footer, AlignmentType, PageNumber } = await import('docx');
     const { saveAs } = await import('file-saver');
+
+    // Default configuration parsing
+    const config = layoutConfig || {
+        fontFamily: 'font-sans',
+        fontSize: 'text-sm',
+        lineSpacing: 'leading-relaxed',
+        margins: 'p-[2.5cm]',
+        headerOptions: { enabled: false, text: '' },
+        footerOptions: { enabled: false, pageNumbers: true }
+    };
+
+    const marginMapping = {
+        'p-[1.27cm]': 720,   // ~0.5 inch
+        'p-[2cm]': 1134,     // ~0.79 inch
+        'p-[2.5cm]': 1417,   // ~0.98 inch
+        'p-[2.54cm]': 1440   // 1 inch
+    };
+    const docMargin = marginMapping[config.margins] || 1440;
+
+    const fontMapping = {
+        'font-sans': 'Arial',
+        'font-serif': 'Times New Roman',
+        'font-mono': 'Courier New'
+    };
+    const docFont = fontMapping[config.fontFamily] || 'Arial';
+
+    const sizeMapping = {
+        'text-sm': 22, // 11pt * 2 (half-points in docx)
+        'text-base': 24, // 12pt * 2
+        'text-lg': 28 // 14pt * 2
+    };
+    const docSize = sizeMapping[config.fontSize] || 24;
 
     const children = [];
 
@@ -132,13 +164,55 @@ export async function exportDocx(schema, filename = 'DocStudio_Export.docx') {
         }
     });
 
+    const headers = config.headerOptions.enabled && config.headerOptions.text ? {
+        default: new Header({
+            children: [
+                new Paragraph({
+                    children: [new TextRun({ text: config.headerOptions.text, color: '666666', size: 18, allCaps: true })],
+                    alignment: AlignmentType.CENTER
+                })
+            ]
+        })
+    } : undefined;
+
+    const footers = config.footerOptions.enabled ? {
+        default: new Footer({
+            children: [
+                new Paragraph({
+                    children: config.footerOptions.pageNumbers ? [
+                        new TextRun("- "),
+                        new TextRun({ children: [PageNumber.CURRENT] }),
+                        new TextRun(" -")
+                    ] : [],
+                    alignment: AlignmentType.CENTER,
+                    style: "FooterText"
+                })
+            ]
+        })
+    } : undefined;
+
     const doc = new Document({
+        styles: {
+            default: {
+                document: {
+                    run: {
+                        size: docSize,
+                        font: docFont,
+                    },
+                    paragraph: {
+                        spacing: { line: 276, before: 0, after: 0 }
+                    }
+                }
+            }
+        },
         sections: [{
             properties: {
                 page: {
-                    margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } // 1 inch margins
+                    margin: { top: docMargin, right: docMargin, bottom: docMargin, left: docMargin }
                 }
             },
+            headers: headers,
+            footers: footers,
             children: children
         }]
     });

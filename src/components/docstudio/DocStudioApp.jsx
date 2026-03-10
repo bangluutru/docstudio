@@ -8,6 +8,7 @@ import { analyzeAndSuggest } from '../../lib/docstudio/formatSuggester';
 import { importDocx } from '../../lib/docstudio/docxImporter';
 import DocStudioPreview from './DocStudioPreview';
 import FormatSuggestionPanel from './FormatSuggestionPanel';
+import LayoutSettingsBar from './LayoutSettingsBar';
 
 // =====================================================================
 // i18n translations for DocStudio Tab 9
@@ -137,6 +138,16 @@ export default function DocStudioApp({ displayLang }) {
     const [suggestions, setSuggestions] = useState([]);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const fileInputRef = useRef(null);
+
+    // Layout Engine configuration state
+    const [layoutConfig, setLayoutConfig] = useState({
+        fontFamily: 'font-sans',
+        fontSize: 'text-sm',
+        lineSpacing: 'leading-relaxed',
+        margins: 'p-[2.5cm]',
+        headerOptions: { enabled: false, text: '' },
+        footerOptions: { enabled: false, pageNumbers: true }
+    });
 
     const t = dsTranslations[displayLang] || dsTranslations.vn;
 
@@ -395,7 +406,7 @@ export default function DocStudioApp({ displayLang }) {
                                                 className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-sm">
                                                 <Printer size={14} /> PDF
                                             </button>
-                                            <button onClick={() => exportDocx(generatedSchema, 'DocStudio_Export.docx')}
+                                            <button onClick={() => exportDocx(generatedSchema, 'DocStudio_Export.docx', layoutConfig)}
                                                 className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-sm">
                                                 <Download size={14} /> DOCX
                                             </button>
@@ -473,15 +484,20 @@ export default function DocStudioApp({ displayLang }) {
                                 </div>
 
                                 {/* Right: Preview */}
-                                <div className="w-1/2 bg-slate-200 border border-slate-300 rounded-xl overflow-y-auto p-4 flex justify-center custom-scrollbar">
-                                    {generatedSchema ? (
-                                        <DocStudioPreview schema={generatedSchema} />
-                                    ) : (
-                                        <div className="bg-white w-full max-w-[210mm] min-h-[297mm] shadow-lg p-10 flex flex-col items-center justify-center">
-                                            <FileUp size={48} className="text-slate-200 mb-4" />
-                                            <p className="text-slate-400 text-center italic text-sm max-w-xs">{t.previewEmpty}</p>
-                                        </div>
-                                    )}
+                                <div className="w-1/2 flex flex-col min-h-0 bg-slate-200 border border-slate-300 rounded-xl overflow-hidden">
+                                    <div className="p-2 border-b border-slate-300 bg-white/50 backdrop-blur-sm z-10 shrink-0">
+                                        <LayoutSettingsBar config={layoutConfig} onChange={setLayoutConfig} />
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto p-4 flex justify-center custom-scrollbar">
+                                        {generatedSchema ? (
+                                            <DocStudioPreview schema={generatedSchema} layoutConfig={layoutConfig} />
+                                        ) : (
+                                            <div className="bg-white w-full max-w-[210mm] min-h-[297mm] shadow-lg p-10 flex flex-col items-center justify-center">
+                                                <FileUp size={48} className="text-slate-200 mb-4" />
+                                                <p className="text-slate-400 text-center italic text-sm max-w-xs">{t.previewEmpty}</p>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>

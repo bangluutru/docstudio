@@ -16,11 +16,11 @@ const BlockRenderer = ({ block }) => {
             return <Tag className={sizeClasses[block.level]}>{block.text}</Tag>;
 
         case 'paragraph':
-            return <p className="mb-3 text-sm leading-relaxed text-slate-700 text-justify">{block.text}</p>;
+            return <p className="mb-3 leading-inherit text-slate-800 text-justify">{block.text}</p>;
 
         case 'list':
             return (
-                <ul className="list-disc pl-5 mb-4 text-sm text-slate-700 space-y-1">
+                <ul className="list-disc pl-5 mb-4 text-slate-800 space-y-1">
                     {block.items.map((item, i) => (
                         <li key={i}>{item}</li>
                     ))}
@@ -29,27 +29,27 @@ const BlockRenderer = ({ block }) => {
 
         case 'quote':
             return (
-                <blockquote className="border-l-4 border-indigo-500 pl-4 py-1 italic mb-4 text-sm text-slate-600 bg-slate-50">
+                <blockquote className="border-l-4 border-indigo-500 pl-4 py-1 italic mb-4 text-slate-600 bg-slate-50">
                     {block.text}
                 </blockquote>
             );
 
         case 'table':
             return (
-                <div className="mb-4 overflow-hidden border border-slate-200 rounded-lg">
-                    <table className="w-full text-left border-collapse text-sm">
-                        <thead className="bg-slate-50">
+                <div className="mb-4 overflow-hidden border border-slate-300">
+                    <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-100">
                             <tr>
                                 {block.headers.map((h, i) => (
-                                    <th key={i} className="p-2 border-b border-slate-200 font-bold text-slate-700">{h}</th>
+                                    <th key={i} className="p-2 border border-slate-300 font-bold text-slate-800">{h}</th>
                                 ))}
                             </tr>
                         </thead>
                         <tbody>
                             {block.rows.map((row, i) => (
-                                <tr key={i} className="border-b border-slate-100 last:border-none">
+                                <tr key={i}>
                                     {row.map((cell, j) => (
-                                        <td key={j} className="p-2 text-slate-600">{cell}</td>
+                                        <td key={j} className="p-2 border border-slate-300 text-slate-800">{cell}</td>
                                     ))}
                                 </tr>
                             ))}
@@ -62,8 +62,8 @@ const BlockRenderer = ({ block }) => {
             return (
                 <div className="mt-12 flex justify-end mb-16">
                     <div className="text-center w-48">
-                        <p className="font-bold text-sm text-slate-800 mb-20 uppercase">Người báo cáo</p>
-                        <p className="text-sm font-medium text-slate-700 border-t border-slate-300 pt-2">(Ký và ghi rõ họ tên)</p>
+                        <p className="font-bold text-slate-800 mb-20 uppercase">Người báo cáo</p>
+                        <p className="font-medium text-slate-700 border-t border-slate-400 pt-2">(Ký và ghi rõ họ tên)</p>
                     </div>
                 </div>
             );
@@ -81,14 +81,14 @@ const BlockRenderer = ({ block }) => {
 
         case 'date_field':
             return (
-                <p className="text-sm text-slate-500 italic text-right mb-4 mt-2">
+                <p className="text-slate-500 italic text-right mb-4 mt-2">
                     {block.text}
                 </p>
             );
 
         case 'closing':
             return (
-                <p className="text-sm font-semibold text-slate-700 text-right mb-2 uppercase tracking-wide">
+                <p className="font-semibold text-slate-800 text-right mb-2 uppercase tracking-wide">
                     {block.text}
                 </p>
             );
@@ -98,29 +98,58 @@ const BlockRenderer = ({ block }) => {
     }
 };
 
-export default function DocStudioPreview({ schema }) {
+export default function DocStudioPreview({ schema, layoutConfig }) {
+    const config = layoutConfig || {
+        fontFamily: 'font-sans',
+        fontSize: 'text-sm',
+        lineSpacing: 'leading-relaxed',
+        margins: 'p-[2.5cm]',
+        headerOptions: { enabled: false, text: '' },
+        footerOptions: { enabled: false, pageNumbers: true }
+    };
+
     if (!schema || !schema.sections || schema.sections.length === 0) {
         return (
-            <div className="bg-white w-full max-w-[210mm] min-h-[297mm] shadow-[0_0_15px_rgba(0,0,0,0.1)] p-[2.5cm] flex items-center justify-center">
+            <div className={`bg-white w-full max-w-[210mm] min-h-[297mm] shadow-[0_0_15px_rgba(0,0,0,0.1)] flex flex-col items-center justify-center ${config.margins}`}>
                 <p className="text-slate-400 text-center italic">Document preview will appear here.</p>
             </div>
         );
     }
 
-    return (
-        <div className="bg-white w-full max-w-[210mm] min-h-[297mm] shadow-[0_0_15px_rgba(0,0,0,0.1)] p-[2.5cm] mx-auto transition-transform print:shadow-none print:p-0">
-            {schema.sections.map((section, idx) => (
-                <div key={section.id} className="mb-8">
-                    {section.title && <h1 className="text-3xl font-black mb-6 text-slate-900">{section.title}</h1>}
-                    {section.blocks.map(block => (
-                        <BlockRenderer key={block.id} block={block} />
-                    ))}
+    const containerClasses = `bg-white w-full max-w-[210mm] min-h-[297mm] shadow-[0_0_15px_rgba(0,0,0,0.1)] mx-auto transition-all print:shadow-none print:p-0 relative flex flex-col ${config.fontFamily} ${config.fontSize} ${config.lineSpacing} ${config.margins}`;
 
-                    {idx < schema.sections.length - 1 && (
-                        <div className="page-break-indicator border-t-2 border-dashed border-slate-300 my-8 print:hidden" />
+    return (
+        <div className={containerClasses}>
+            {/* Header Rendering */}
+            {config.headerOptions.enabled && (
+                <div className="absolute top-4 left-0 w-full text-center print:fixed print:top-4 opacity-50 text-[0.8em] uppercase tracking-widest font-bold">
+                    {config.headerOptions.text}
+                </div>
+            )}
+
+            <div className="flex-1 flex flex-col relative z-0">
+                {schema.sections.map((section, idx) => (
+                    <div key={section.id} className="mb-8 flex-1">
+                        {section.title && <h1 className="text-3xl font-black mb-6 text-slate-900">{section.title}</h1>}
+                        {section.blocks.map(block => (
+                            <BlockRenderer key={block.id} block={block} />
+                        ))}
+
+                        {idx < schema.sections.length - 1 && (
+                            <div className="page-break-indicator border-t-2 border-dashed border-slate-300 my-8 print:hidden" />
+                        )}
+                    </div>
+                ))}
+            </div>
+
+            {/* Footer Rendering */}
+            {config.footerOptions.enabled && (
+                <div className="absolute bottom-4 left-0 w-full flex justify-center items-center print:fixed print:bottom-4 opacity-50 text-[0.8em]">
+                    {config.footerOptions.pageNumbers && (
+                        <span>- 1 -</span> // For HTML preview we mock page 1. Print adds native headers/footers usually, or CSS counters.
                     )}
                 </div>
-            ))}
+            )}
         </div>
     );
 }
