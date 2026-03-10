@@ -249,7 +249,7 @@ export default function DocStudioApp({ displayLang }) {
     return (
         <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 w-full text-slate-800 font-sans">
             {/* Sidebar */}
-            <aside className="no-print w-full md:w-64 bg-slate-900 text-slate-200 border-r border-slate-800 shrink-0 sticky top-0 h-screen overflow-y-auto">
+            <aside className="print:hidden w-full md:w-64 bg-slate-900 text-slate-200 border-r border-slate-800 shrink-0 sticky top-0 h-screen overflow-y-auto">
                 <div className="p-5 border-b border-white/10 shrink-0">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center shadow-inner">
@@ -291,7 +291,7 @@ export default function DocStudioApp({ displayLang }) {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-y-auto bg-slate-50 p-6 relative">
+            <main className="flex-1 overflow-y-auto bg-slate-50 p-6 relative print:p-0 print:bg-white print:overflow-visible">
                 <div className="max-w-5xl mx-auto">
                     {/* ── Dashboard ── */}
                     {activeSubTab === 'dashboard' && (
@@ -371,9 +371,9 @@ export default function DocStudioApp({ displayLang }) {
 
                     {/* ── Editor ── */}
                     {activeSubTab === 'editor' && (
-                        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 flex flex-col h-[calc(100vh-3rem)]">
+                        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 flex flex-col h-[calc(100vh-3rem)] print:h-auto print:block">
                             {/* Toolbar */}
-                            <header className="mb-3 flex justify-between items-center shrink-0">
+                            <header className="mb-3 flex justify-between items-center shrink-0 print:hidden">
                                 <div className="flex items-center gap-3">
                                     <button onClick={() => setActiveSubTab('dashboard')}
                                         className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors" title={t.backToDash}>
@@ -417,7 +417,7 @@ export default function DocStudioApp({ displayLang }) {
 
                             {/* Status message */}
                             {statusMessage && (
-                                <div className={`mb-3 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 shrink-0 ${statusType === 'success' ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' :
+                                <div className={`print:hidden mb-3 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 shrink-0 ${statusType === 'success' ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' :
                                     statusType === 'error' ? 'bg-red-50 border border-red-200 text-red-700' :
                                         'bg-blue-50 border border-blue-200 text-blue-700'}`}>
                                     {statusType === 'info' ? <Sparkles size={14} className="animate-spin text-blue-500" /> : <Sparkles size={14} />}
@@ -426,9 +426,9 @@ export default function DocStudioApp({ displayLang }) {
                             )}
 
                             {/* Main editor area */}
-                            <div className="flex-1 flex gap-4 min-h-0">
+                            <div className="flex-1 flex gap-4 min-h-0 print:block print:overflow-visible">
                                 {/* Left: Editor + Suggestions + Validation */}
-                                <div className="w-1/2 flex flex-col gap-3 min-h-0">
+                                <div className="w-1/2 flex flex-col gap-3 min-h-0 print:hidden">
                                     {/* Textarea */}
                                     <div className={`flex flex-col bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm ${suggestions.length > 0 ? 'h-1/3' : 'flex-1'}`}>
                                         <div className="p-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between shrink-0">
@@ -484,11 +484,11 @@ export default function DocStudioApp({ displayLang }) {
                                 </div>
 
                                 {/* Right: Preview */}
-                                <div className="w-1/2 flex flex-col min-h-0 bg-slate-200 border border-slate-300 rounded-xl overflow-hidden">
-                                    <div className="p-2 border-b border-slate-300 bg-white/50 backdrop-blur-sm z-10 shrink-0">
+                                <div className="w-1/2 flex flex-col min-h-0 bg-slate-200 border border-slate-300 rounded-xl overflow-hidden print:w-full print:border-none print:shadow-none print:bg-transparent print:block print:overflow-visible">
+                                    <div className="p-2 border-b border-slate-300 bg-white/50 backdrop-blur-sm z-10 shrink-0 print:hidden">
                                         <LayoutSettingsBar config={layoutConfig} onChange={setLayoutConfig} />
                                     </div>
-                                    <div className="flex-1 overflow-y-auto p-4 flex justify-center custom-scrollbar">
+                                    <div className="flex-1 overflow-y-auto p-4 flex justify-center custom-scrollbar print:p-0 print:m-0 print:overflow-visible print:block">
                                         {generatedSchema ? (
                                             <DocStudioPreview schema={generatedSchema} layoutConfig={layoutConfig} />
                                         ) : (

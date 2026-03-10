@@ -134,9 +134,9 @@ function analyzeLine(text, lineIndex, position, totalLines, afterSignature) {
         return { id, lineIndex, text: mdHeading[2], suggestedType: `heading_${level}`, confidence: 'high' };
     }
 
-    // Markdown lists
-    if (/^[-*•]\s+/.test(text) || /^\d+\.\s+/.test(text)) {
-        const cleanText = text.replace(/^[-*•]\s+/, '').replace(/^\d+\.\s+/, '');
+    // Markdown lists (bullets only)
+    if (/^[-*•]\s+/.test(text)) {
+        const cleanText = text.replace(/^[-*•]\s+/, '');
         return { id, lineIndex, text: cleanText, suggestedType: FORMAT_TYPES.LIST_ITEM, confidence: 'high' };
     }
 
@@ -191,17 +191,23 @@ function analyzeLine(text, lineIndex, position, totalLines, afterSignature) {
         }
     }
 
-    // Numbered section headers: I., II., Điều, 第, Article, Section
-    const sectionPattern = /^(I{1,3}V?|V?I{0,3}|[IVX]+|Điều|Mục|Chương|第|Article|Section|Part)\s*[\.:)]\s*/i;
-    if (sectionPattern.test(text) && wordCount <= 20) {
-        return { id, lineIndex, text, suggestedType: FORMAT_TYPES.HEADING_2, confidence: 'medium' };
+    // Numbered section headers: I., II., Điều 1:, 第2章, Article 3
+    const sectionPattern = /^(I{1,3}V?|V?I{0,3}|[IVX]+|Điều|Mục|Chương|Phần|第|Article|Section|Part)\s+[\dIVX]+\s*[\.:\-]?\s*/i;
+    if (sectionPattern.test(text) && wordCount <= 25) {
+        return { id, lineIndex, text, suggestedType: FORMAT_TYPES.HEADING_3, confidence: 'high' };
     }
 
-    // Numbered sub-items: 1., 2., a), b)
+    // Explicit bolding candidates (e.g. bolded short lines acting as sub-sections)
+    const boldPattern = /^(1|2|3|4|5|6|7|8|9|10|\d{1,2})\.\s*[A-ZÀ-Ỹ]/i;
+    if (boldPattern.test(text) && wordCount <= 12) {
+        return { id, lineIndex, text, suggestedType: FORMAT_TYPES.HEADING_3, confidence: 'medium' };
+    }
+
+    // Numbered sub-items: a), b), -
     const subItemPattern = /^[a-zđ]\)|^[a-z]\.\s/i;
     if (subItemPattern.test(text)) {
-        const cleanText = text.replace(/^[a-zđ]\)\s*/, '').replace(/^[a-z]\.\s+/i, '');
-        return { id, lineIndex, text: cleanText, suggestedType: FORMAT_TYPES.LIST_ITEM, confidence: 'medium' };
+        // We preserve the letter/bullet so legal documents don't lose their a) b) c) flow
+        return { id, lineIndex, text: text, suggestedType: FORMAT_TYPES.BODY_TEXT, confidence: 'medium' };
     }
 
     // Short UPPERCASE lines mid-document → H2
