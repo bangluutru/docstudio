@@ -198,12 +198,42 @@ export async function exportDocx(schema, filename = 'DocStudio_Export.docx', lay
                     run: {
                         size: docSize,
                         font: docFont,
+                        color: '000000'
                     },
                     paragraph: {
                         spacing: { line: 276, before: 0, after: 0 }
                     }
                 }
-            }
+            },
+            paragraphStyles: [
+                {
+                    id: "Heading1",
+                    name: "Heading 1",
+                    basedOn: "Normal",
+                    next: "Normal",
+                    quickFormat: true,
+                    run: { size: docSize + 8, bold: true, color: '000000' },
+                    paragraph: { spacing: { before: 300, after: 120 }, alignment: AlignmentType.CENTER }
+                },
+                {
+                    id: "Heading2",
+                    name: "Heading 2",
+                    basedOn: "Normal",
+                    next: "Normal",
+                    quickFormat: true,
+                    run: { size: docSize + 4, bold: true, color: '000000' },
+                    paragraph: { spacing: { before: 240, after: 120 } }
+                },
+                {
+                    id: "Heading3",
+                    name: "Heading 3",
+                    basedOn: "Normal",
+                    next: "Normal",
+                    quickFormat: true,
+                    run: { size: docSize + 2, bold: true, color: '000000' },
+                    paragraph: { spacing: { before: 200, after: 100 } }
+                }
+            ]
         },
         sections: [{
             properties: {

@@ -117,9 +117,17 @@ export default function DocStudioPreview({ schema, layoutConfig }) {
     }
 
     const containerClasses = `bg-white w-full max-w-[210mm] min-h-[297mm] shadow-[0_0_15px_rgba(0,0,0,0.1)] mx-auto transition-all print:shadow-none print:p-0 relative flex flex-col ${config.fontFamily} ${config.fontSize} ${config.lineSpacing} ${config.margins}`;
+    const marginSize = config.margins.match(/\[(.*?)\]/)?.[1] || '2.5cm';
 
     return (
         <div className={containerClasses}>
+            <style>{`
+                @media print {
+                    @page { margin: ${marginSize} !important; }
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                }
+            `}</style>
+
             {/* Header Rendering */}
             {config.headerOptions.enabled && (
                 <div className="absolute top-4 left-0 w-full text-center print:fixed print:top-4 opacity-50 text-[0.8em] uppercase tracking-widest font-bold">
