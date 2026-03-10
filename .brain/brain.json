@@ -2,7 +2,7 @@
     "meta": {
         "schema_version": "1.1.0",
         "awf_version": "4.0.0",
-        "last_updated": "2026-03-05T06:11:00+09:00"
+        "last_updated": "2026-03-05T17:20:00+09:00"
     },
     "project": {
         "name": "DocStudio",
@@ -16,7 +16,7 @@
         "frontend": {
             "framework": "React 19",
             "bundler": "Vite 7.3",
-            "styling": "Vanilla CSS + Inline styles",
+            "styling": "Tailwind CSS 3 + Vanilla CSS + Inline styles",
             "icons": "lucide-react"
         },
         "libraries": {
@@ -27,6 +27,10 @@
             "pdf": [
                 "pdf-lib (create/edit/merge/split PDF)",
                 "pdfjs-dist (render PDF previews)"
+            ],
+            "docx": [
+                "docx (create DOCX documents from DOM/JSON)",
+                "file-saver (trigger browser downloads)"
             ],
             "markdown": [
                 "react-markdown (legal doc rendering)",
@@ -65,6 +69,7 @@
                     "UndoToast.jsx"
                 ],
                 "description": "Tạo phiếu chứng chỉ/kiểm nghiệm từ JSON, đa ngôn ngữ, SVG stamps, multi-page",
+                "toolbar": "DocToolbar (indigo) — Lang/Font/Edit/Zoom/DOCX/PDF",
                 "status": "stable"
             },
             {
@@ -74,7 +79,8 @@
                 "icon": "Scale + ⚖️",
                 "color": "emerald",
                 "file": "src/components/LegalDocumentView.jsx",
-                "description": "Dịch thuật văn bản pháp lý, Markdown rendering, citation stripping",
+                "description": "Dịch thuật và hiển thị văn bản pháp lý, Markdown rendering, citation stripping",
+                "toolbar": "DocToolbar (emerald) — Lang/Font/Edit/Zoom/DOCX/PDF",
                 "status": "stable"
             },
             {
@@ -85,6 +91,7 @@
                 "color": "teal",
                 "file": "src/components/LongDocTranslatorView.jsx",
                 "description": "Dịch văn bản dài với batching, A4 pagination, page numbers, format styles (official/academic), block-based rendering",
+                "toolbar": "DocToolbar (teal) — Lang/Font/Edit/Zoom/DOCX/PDF",
                 "status": "stable"
             },
             {
@@ -95,6 +102,7 @@
                 "color": "fuchsia",
                 "file": "src/components/TemplateOverlayView.jsx",
                 "description": "HTML template + JSON data → render preview → in PDF. Redesigned layout.",
+                "toolbar": "DocToolbar (fuchsia) — Lang/Font/Edit/Zoom/DOCX/PDF",
                 "status": "stable"
             },
             {
@@ -139,6 +147,8 @@
             }
         ],
         "shared_components": {
+            "DocToolbar": "src/components/DocToolbar.jsx — Unified toolbar for tabs 1-4: Lang selector, Google Font Picker, Edit toggle, Zoom, DOCX/PDF export. Accent color per tab.",
+            "GoogleFontPicker": "src/components/GoogleFontPicker.jsx — Searchable Google Fonts dropdown with lazy loading, 30+ curated fonts, CJK support.",
             "PromptHelper": "src/components/PromptHelper.jsx — Copy-to-clipboard system prompt panel",
             "ZoneEditor": "src/components/ZoneEditor.jsx — Editable zone for Excel header/footer"
         },
@@ -163,7 +173,10 @@
                 "Edit/Preview toggle",
                 "i18n VN/EN/JP",
                 "Auto-save localStorage",
-                "PromptHelper"
+                "PromptHelper",
+                "Google Font Picker",
+                "DOCX export (DOM walking)",
+                "PDF print"
             ]
         },
         "tab2_legal": {
@@ -174,7 +187,9 @@
                 "Edit in-place",
                 "Print/PDF",
                 "Batch mode",
-                "PromptHelper"
+                "PromptHelper",
+                "Google Font Picker",
+                "DOCX export"
             ]
         },
         "tab3_ejv_translator": {
@@ -186,7 +201,11 @@
                 "Block-based rendering (heading/paragraph/list/table/blockquote/signature)",
                 "Language toggle VN/EN/JP",
                 "Auto-save localStorage",
-                "PromptHelper (LONG_DOC_TRANS_PROMPT)"
+                "PromptHelper (LONG_DOC_TRANS_PROMPT)",
+                "Google Font Picker",
+                "Inline text editing (prompt-based)",
+                "DOCX export",
+                "PDF print"
             ]
         },
         "tab4_template_overlay": {
@@ -196,7 +215,10 @@
                 "Rescue tools (font, spacing)",
                 "Click-to-edit preview",
                 "PromptHelper",
-                "Redesigned layout"
+                "Redesigned layout",
+                "Google Font Picker",
+                "DOCX export (DOM walking)",
+                "PDF print"
             ]
         },
         "tab7_excel_mapping": {
@@ -209,6 +231,17 @@
                 "Profile save/load",
                 "Single-sheet export"
             ]
+        },
+        "unified_toolbar": {
+            "description": "DocToolbar shared component for tabs 1-4",
+            "layout": "[Lang: VN/EN/JA] [Font Picker] [Edit ✏️] ... [Zoom -/100%/+] [DOCX] [PDF]",
+            "features": [
+                "Consistent layout across all 4 tabs",
+                "Accent color per tab (indigo/emerald/teal/fuchsia)",
+                "Google Font Picker with search, lazy loading",
+                "CSS custom property --custom-font for font override",
+                "!important override to cascade through Tailwind classes"
+            ]
         }
     },
     "knowledge_items": {
@@ -218,20 +251,29 @@
             "PromptHelper: shared component for system prompt copy-to-clipboard",
             "Trilingual guide: same data structure for VN/EN/JP with accordion UI",
             "A4 pagination: PAGE_CONTENT_HEIGHT_MM = 247mm (297-25-25), PX_PER_MM = 3.7795",
-            "Block-based document rendering: heading/paragraph/list/table/blockquote/signature"
+            "Block-based document rendering: heading/paragraph/list/table/blockquote/signature",
+            "DocToolbar: reusable toolbar with configurable accent color and optional features",
+            "GoogleFontPicker: lazy-load Google Fonts via API, 30+ curated fonts with CJK support",
+            "CSS custom property font override: .custom-font-active * { font-family: var(--custom-font) !important } — overrides Tailwind font-sans/font-serif",
+            "DOCX export via DOM walking: walkNode recursion → TextRun/Paragraph/Table/Heading"
         ],
         "gotchas": [
             "xlsx-template KHÔNG chạy trong browser",
             "String(formulaObject) = '[object Object]' → extract .formula",
             "Saved profiles cache old zone data → sanitize on load",
-            "Formula auto-adjustment too fragile → give user manual control"
+            "Formula auto-adjustment too fragile → give user manual control",
+            "Tailwind font-sans/font-serif classes override container-level fontFamily → use CSS !important with custom property",
+            "useRef declared but not attached to DOM (ref={refName} missing) → ref.current always null → silent failures",
+            "DOCX export empty when printAreaRef.current is null — always verify ref is attached to DOM element"
         ],
         "conventions": [
             "System prompts in src/utils/prompts.js as exported constants (CERT_PROMPT_TEXT, LEGAL_PROMPT_TEXT, LONG_DOC_TRANS_PROMPT)",
-            "Shared components: PromptHelper, ZoneEditor",
+            "Shared components: DocToolbar, GoogleFontPicker, PromptHelper, ZoneEditor",
             "Tab views are self-contained with own translations",
             "Tab icons: Lucide icon + emoji fallback when collapsed",
-            "Tab order: Certificate, Legal, EJV, Overlay, PDF Split, PDF Merge, Excel, Guide"
+            "Tab order: Certificate, Legal, EJV, Overlay, PDF Split, PDF Merge, Excel, Guide",
+            "Toolbar layout: [Lang][Font][Edit] (left) ... [Zoom][DOCX][PDF] (right)",
+            "Custom font state: const [customFont, setCustomFont] = useState(null) in each tab"
         ]
     }
 }
