@@ -58,6 +58,7 @@ export const uiTranslations = {
         exportXlsx: "Tải xuống .xlsx",
         mappingNew: "Chưa lưu",
         addRule: "+ Thêm Rule",
+        tabDocStudio: "DocStudio",
     },
     en: {
         signer: "REPORT PREPARER",
@@ -115,6 +116,7 @@ export const uiTranslations = {
         exportXlsx: "Export .xlsx",
         mappingNew: "New Profile",
         addRule: "+ Add Rule",
+        tabDocStudio: "DocStudio",
     },
     jp: {
         signer: "作成者",
@@ -172,5 +174,6 @@ export const uiTranslations = {
         exportXlsx: "出力 .xlsx",
         mappingNew: "新規プロファイル",
         addRule: "+ ルール追加",
+        tabDocStudio: "DocStudio",
     },
 };

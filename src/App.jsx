@@ -21,6 +21,7 @@ import {
   ZoomIn,
   ZoomOut,
   FileDown,
+  LayoutTemplate,
 } from 'lucide-react';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType } from 'docx';
 import { saveAs } from 'file-saver';
@@ -33,6 +34,7 @@ import PdfMergerView from './components/PdfMergerView';
 import TemplateOverlayView from './components/TemplateOverlayView';
 import ExcelMappingView from './components/ExcelMappingView';
 import UserGuideView from './components/UserGuideView';
+import DocStudioApp from './components/docstudio/DocStudioApp';
 import PageCard from './components/PageCard';
 import PromptHelper from './components/PromptHelper';
 import LongDocTranslatorView from './components/LongDocTranslatorView';
@@ -451,6 +453,15 @@ const App = () => {
         >
           <BookOpen size={15} /> {activeTab === 'guide' ? t.tabGuide : '📖'}
         </button>
+        <button
+          onClick={() => setActiveTab('docstudio')}
+          className={`flex items-center gap-2 px-5 py-3 text-sm font-bold border-b-3 transition-all ${activeTab === 'docstudio'
+            ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50'
+            : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+            }`}
+        >
+          <LayoutTemplate size={15} /> {activeTab === 'docstudio' ? t.tabDocStudio : '📝'}
+        </button>
       </div>
 
       {/* ============================================================
@@ -470,6 +481,8 @@ const App = () => {
         <LongDocTranslatorView displayLang={displayLang} />
       ) : activeTab === 'guide' ? (
         <UserGuideView displayLang={displayLang} />
+      ) : activeTab === 'docstudio' ? (
+        <DocStudioApp displayLang={displayLang} />
       ) : (
         <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900">
 
