@@ -122,10 +122,16 @@ const dsTranslations = {
 };
 
 const MOCK_DOCS = [
-    { id: '1', title_vn: 'Quyết định bổ nhiệm NS', title_en: 'Appointment Decision', title_jp: '人事任命決定', type: 'Official Letter', status: 'DRAFT', updatedAt: '2026-03-10' },
-    { id: '2', title_vn: 'Biên bản nghiệm thu dự án', title_en: 'Project Acceptance Report', title_jp: 'プロジェクト検収議事録', type: 'Meeting Minutes', status: 'GENERATED', updatedAt: '2026-03-09' },
-    { id: '3', title_vn: 'Hợp đồng nguyên tắc Hojokin', title_en: 'Hojokin Framework Contract', title_jp: 'Hojokin基本契約', type: 'Contract', status: 'VALIDATED', updatedAt: '2026-03-08' },
+    { id: '1', title_vn: 'Quyết định bổ nhiệm NS', title_en: 'Appointment Decision', title_jp: '人事任命決定', type: 'Official Letter', status: 'DRAFT', updatedAt: '2026-03-10', content: `CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM\nĐộc lập - Tự do - Hạnh phúc\n\nQUYẾT ĐỊNH BỔ NHIỆM\n\nSố: 01/2026/QĐ-BN\n\nKính gửi: Phòng Nhân sự, Ông/Bà Lê Trí Nam\n\nĐiều 1: Bổ nhiệm chức danh\nBổ nhiệm Ông Lê Trí Nam giữ chức vụ Trưởng phòng Công nghệ kể từ ngày 15/03/2026.\n\nĐiều 2: Mức lương và phụ cấp\nMức lương cơ bản và phụ cấp được hưởng theo quy định của công ty.` },
+    { id: '2', title_vn: 'Biên bản nghiệm thu dự án', title_en: 'Project Acceptance Report', title_jp: 'プロジェクト検収議事録', type: 'Meeting Minutes', status: 'GENERATED', updatedAt: '2026-03-09', content: `CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM\nĐộc lập - Tự do - Hạnh phúc\n\nBIÊN BẢN NGHIỆM THU DỰ ÁN\n\nHôm nay, ngày 09 tháng 03 năm 2026, tại văn phòng công ty.\n\nThành phần tham dự:\n1. Đại diện Bên A: Ông Trần Hải Bằng\n2. Đại diện Bên B: Ông Lê Trí Nam\n\nNội dung nghiệm thu:\n1. Phần mềm quản lý tài liệu DocStudio\n2. Module tích hợp AI Rewrite\n\nKết luận:\nHai bên đồng ý nghiệm thu và ghi nhận hệ thống hoạt động ổn định.` },
+    { id: '3', title_vn: 'Hợp đồng nguyên tắc Hojokin', title_en: 'Hojokin Framework Contract', title_jp: 'Hojokin基本契約', type: 'Contract', status: 'VALIDATED', updatedAt: '2026-03-08', content: `CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM\nĐộc lập - Tự do - Hạnh phúc\n\nHỢP ĐỒNG NGUYÊN TẮC\n\nSố: 05/2026/HĐNT-HOJOKIN\n\nBÊN A: Công ty Cổ phần Genki Fami Việt Nam\nĐại diện: Ông Trần Hải Bằng\n\nBÊN B: Đối tác Hojokin\n\nĐiều 1: Phạm vi hợp tác\nHai bên đồng ý hợp tác triển khai hệ thống phân tích trợ cấp Hojokin Navigator tại thị trường Nhật Bản.\n\nĐiều 2: Nghĩa vụ các bên\nBên A cung cấp tài nguyên máy chủ. Bên B cung cấp dữ liệu pháp lý.` },
 ];
+
+const TEMPLATE_BOILERPLATES = {
+    'Official Letter': `CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM\nĐộc lập - Tự do - Hạnh phúc\n--------o0o--------\n\nTÊN CÔNG VĂN / TỜ TRÌNH\n\nSố: .../2026/CV\n\nKính gửi: [Tên cơ quan/cá nhân nhận]\n\nCăn cứ vào...\n\nĐiều 1: [Tiêu đề nội dung]\nNội dung chi tiết...\n\nĐiều 2: Trách nhiệm thi hành\n...`,
+    'Meeting Minutes': `CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM\nĐộc lập - Tự do - Hạnh phúc\n--------o0o--------\n\nBIÊN BẢN HỌP / NGHIỆM THU\n\nThời gian: ...\nĐịa điểm: ...\n\nThành phần tham dự:\n1. [Ông/Bà A]\n2. [Ông/Bà B]\n\nNội dung cuộc họp:\n1. Vấn đề 1: ...\n2. Vấn đề 2: ...\n\nKết luận:\n...`,
+    'Contract': `CỘNG HOÀ XÃ HỘI CHỦ NGHĨA VIỆT NAM\nĐộc lập - Tự do - Hạnh phúc\n--------o0o--------\n\nHỢP ĐỒNG KINH TẾ / LAO ĐỘNG\n\nSố: .../2026/HĐ\n\nHôm nay, ngày ... tháng ... năm ..., tại ...\nChúng tôi gồm:\n\nBÊN A: [Tên Công ty/Cá nhân]\nĐại diện: ...\n\nBÊN B: [Tên Công ty/Cá nhân]\nĐại diện: ...\n\nĐiều 1: Nội dung hợp đồng\n...`
+};
 
 export default function DocStudioApp({ displayLang }) {
     const [activeSubTab, setActiveSubTab] = useState('dashboard');
@@ -292,6 +298,28 @@ export default function DocStudioApp({ displayLang }) {
         e.target.value = '';
     };
 
+    // Handle clicking a document in the dashboard
+    const handleLoadDocument = (doc) => {
+        setRawInput(doc.content || '');
+        setGeneratedSchema(null);
+        setValidationIssues([]);
+        setSuggestions([]);
+        setStatusMessage('Đã tải tài liệu từ Workspace.');
+        setStatusType('success');
+        setActiveSubTab('editor');
+    };
+
+    // Handle clicking a template
+    const handleLoadTemplate = (templateName) => {
+        setRawInput(TEMPLATE_BOILERPLATES[templateName] || '');
+        setGeneratedSchema(null);
+        setValidationIssues([]);
+        setSuggestions([]);
+        setStatusMessage(`Đã tải mẫu: ${templateName}`);
+        setStatusType('success');
+        setActiveSubTab('editor');
+    };
+
     return (
         <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 w-full text-slate-800 font-sans">
             {/* Sidebar */}
@@ -312,13 +340,13 @@ export default function DocStudioApp({ displayLang }) {
                 <nav className="p-3 space-y-1">
                     <button
                         onClick={() => setActiveSubTab('dashboard')}
-                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${activeSubTab === 'dashboard' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                        className={`w - full flex items - center gap - 3 px - 3 py - 2 text - sm font - semibold rounded - lg transition - colors ${activeSubTab === 'dashboard' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                     >
                         <Layers size={16} /> {t.navDocs}
                     </button>
                     <button
                         onClick={() => setActiveSubTab('templates')}
-                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${activeSubTab === 'templates' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                        className={`w - full flex items - center gap - 3 px - 3 py - 2 text - sm font - semibold rounded - lg transition - colors ${activeSubTab === 'templates' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'} `}
                     >
                         <LayoutTemplate size={16} /> {t.navTemplates}
                     </button>
@@ -365,7 +393,7 @@ export default function DocStudioApp({ displayLang }) {
                                 </div>
                                 <div className="divide-y divide-slate-100">
                                     {MOCK_DOCS.filter(d => getDocTitle(d).toLowerCase().includes(searchQuery.toLowerCase())).map(doc => (
-                                        <div key={doc.id} className="p-4 hover:bg-slate-50 flex items-center justify-between group transition-colors cursor-pointer">
+                                        <div key={doc.id} onClick={() => handleLoadDocument(doc)} className="p-4 hover:bg-slate-50 flex items-center justify-between group transition-colors cursor-pointer">
                                             <div className="flex items-center gap-4">
                                                 <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center">
                                                     <FileText size={18} />
@@ -380,7 +408,7 @@ export default function DocStudioApp({ displayLang }) {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4">
-                                                <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide ${doc.status === 'DRAFT' ? 'bg-slate-100 text-slate-500' : doc.status === 'GENERATED' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                                <span className={`text - [10px] font - bold px - 2 py - 1 rounded - md uppercase tracking - wide ${doc.status === 'DRAFT' ? 'bg-slate-100 text-slate-500' : doc.status === 'GENERATED' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'} `}>
                                                     {doc.status}
                                                 </span>
                                                 <button className="text-slate-400 hover:text-slate-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -403,7 +431,7 @@ export default function DocStudioApp({ displayLang }) {
                             </header>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {['Official Letter', 'Meeting Minutes', 'Contract'].map((template) => (
-                                    <div key={template} className="bg-white border border-slate-200 p-5 rounded-xl hover:shadow-md transition-shadow cursor-pointer group">
+                                    <div key={template} onClick={() => handleLoadTemplate(template)} className="bg-white border border-slate-200 p-5 rounded-xl hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer group">
                                         <div className="w-10 h-10 bg-slate-100 text-slate-500 rounded-lg flex items-center justify-center mb-4 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
                                             <LayoutTemplate size={20} />
                                         </div>
@@ -464,8 +492,9 @@ export default function DocStudioApp({ displayLang }) {
                             {/* Status message */}
                             {statusMessage && (
                                 <div className={`print:hidden mb-3 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 shrink-0 ${statusType === 'success' ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' :
-                                    statusType === 'error' ? 'bg-red-50 border border-red-200 text-red-700' :
-                                        'bg-blue-50 border border-blue-200 text-blue-700'}`}>
+                                        statusType === 'error' ? 'bg-red-50 border border-red-200 text-red-700' :
+                                            'bg-blue-50 border border-blue-200 text-blue-700'
+                                    }`}>
                                     {statusType === 'info' ? <Sparkles size={14} className="animate-spin text-blue-500" /> : <Sparkles size={14} />}
                                     {statusMessage}
                                 </div>
