@@ -320,6 +320,22 @@ export default function DocStudioApp({ displayLang }) {
         setActiveSubTab('editor');
     };
 
+    // Download template as text file
+    const handleDownloadTemplate = (e, templateName) => {
+        e.stopPropagation();
+        const content = TEMPLATE_BOILERPLATES[templateName];
+        if (!content) return;
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${templateName}_Template.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 w-full text-slate-800 font-sans">
             {/* Sidebar */}
@@ -340,13 +356,13 @@ export default function DocStudioApp({ displayLang }) {
                 <nav className="p-3 space-y-1">
                     <button
                         onClick={() => setActiveSubTab('dashboard')}
-                        className={`w - full flex items - center gap - 3 px - 3 py - 2 text - sm font - semibold rounded - lg transition - colors ${activeSubTab === 'dashboard' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${activeSubTab === 'dashboard' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                     >
                         <Layers size={16} /> {t.navDocs}
                     </button>
                     <button
                         onClick={() => setActiveSubTab('templates')}
-                        className={`w - full flex items - center gap - 3 px - 3 py - 2 text - sm font - semibold rounded - lg transition - colors ${activeSubTab === 'templates' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'} `}
+                        className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${activeSubTab === 'templates' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                     >
                         <LayoutTemplate size={16} /> {t.navTemplates}
                     </button>
@@ -408,7 +424,7 @@ export default function DocStudioApp({ displayLang }) {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4">
-                                                <span className={`text - [10px] font - bold px - 2 py - 1 rounded - md uppercase tracking - wide ${doc.status === 'DRAFT' ? 'bg-slate-100 text-slate-500' : doc.status === 'GENERATED' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'} `}>
+                                                <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide ${doc.status === 'DRAFT' ? 'bg-slate-100 text-slate-500' : doc.status === 'GENERATED' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'} `}>
                                                     {doc.status}
                                                 </span>
                                                 <button className="text-slate-400 hover:text-slate-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -432,11 +448,20 @@ export default function DocStudioApp({ displayLang }) {
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {['Official Letter', 'Meeting Minutes', 'Contract'].map((template) => (
                                     <div key={template} onClick={() => handleLoadTemplate(template)} className="bg-white border border-slate-200 p-5 rounded-xl hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer group">
-                                        <div className="w-10 h-10 bg-slate-100 text-slate-500 rounded-lg flex items-center justify-center mb-4 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                                            <LayoutTemplate size={20} />
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="w-10 h-10 bg-slate-100 text-slate-500 rounded-lg flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                                                <LayoutTemplate size={20} />
+                                            </div>
+                                            <button
+                                                onClick={(e) => handleDownloadTemplate(e, template)}
+                                                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                                                title="Tải mẫu định dạng chuẩn (.txt)"
+                                            >
+                                                <Download size={16} />
+                                            </button>
                                         </div>
                                         <h3 className="font-bold text-slate-800">{template}</h3>
-                                        <p className="text-xs text-slate-500 mt-1">A4 | 2.5cm Margins</p>
+                                        <p className="text-xs text-slate-500 mt-1">A4 | Mẫu tài liệu chuẩn</p>
                                     </div>
                                 ))}
                             </div>
@@ -491,10 +516,7 @@ export default function DocStudioApp({ displayLang }) {
 
                             {/* Status message */}
                             {statusMessage && (
-                                <div className={`print:hidden mb-3 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 shrink-0 ${statusType === 'success' ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' :
-                                        statusType === 'error' ? 'bg-red-50 border border-red-200 text-red-700' :
-                                            'bg-blue-50 border border-blue-200 text-blue-700'
-                                    }`}>
+                                <div className={`print:hidden mb-3 px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 shrink-0 ${statusType === 'success' ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : statusType === 'error' ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-blue-50 border border-blue-200 text-blue-700'}`}>
                                     {statusType === 'info' ? <Sparkles size={14} className="animate-spin text-blue-500" /> : <Sparkles size={14} />}
                                     {statusMessage}
                                 </div>
