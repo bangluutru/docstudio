@@ -15,6 +15,7 @@ import {
     ZoomIn,
     ZoomOut,
     FileDown,
+    Wand2,
 } from 'lucide-react';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType } from 'docx';
 import { saveAs } from 'file-saver';
@@ -198,6 +199,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     const [customFont, setCustomFont] = useState(null);
     const [promptSource, setPromptSource] = useState('gemini');
     const [docType, setDocType] = useState('single'); // 'single' | 'twocol'
+    const [smartPasteFeedback, setSmartPasteFeedback] = useState(''); // toast message
 
     // Sync with global lang if it changes, but allow local override
     useEffect(() => {
@@ -356,113 +358,234 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
         window.print();
     };
 
-    // --- DOCX Export ---
+    // -----------------------------------------------------------------
+    // Smart Paste: auto-split HTML + JSON from combined AI output
+    // -----------------------------------------------------------------
+    const smartSplitContent = (rawText) => {
+        if (!rawText || !rawText.trim()) return;
+        let text = rawText.trim();
+        // Remove markdown code fences
+        text = text.replace(/```html\s*/gi, '\n---HTML_SPLIT---\n').replace(/```json\s*/gi, '\n---JSON_SPLIT---\n').replace(/```/g, '\n---END_BLOCK---\n');
+
+        let htmlPart = '';
+        let jsonPart = '';
+
+        // Strategy 1: If we have clear markers from stripping code fences
+        if (text.includes('---HTML_SPLIT---') || text.includes('---JSON_SPLIT---')) {
+            const blocks = text.split(/---(?:HTML_SPLIT|JSON_SPLIT|END_BLOCK)---/).map(b => b.trim()).filter(Boolean);
+            for (const block of blocks) {
+                if (block.match(/^\s*[{\[]/) && block.match(/[}\]]\s*$/)) {
+                    if (!jsonPart) jsonPart = block;
+                } else if (block.includes('<')) {
+                    if (!htmlPart) htmlPart = block;
+                }
+            }
+        }
+
+        // Strategy 2: Find JSON object { ... } and HTML by elimination
+        if (!jsonPart || !htmlPart) {
+            // Try to find a top-level JSON object
+            const jsonMatch = text.match(/(\{[\s\S]*\})/); 
+            if (jsonMatch) {
+                try {
+                    JSON.parse(jsonMatch[1]);
+                    jsonPart = jsonMatch[1];
+                    // Everything else that has HTML tags is HTML
+                    const remaining = text.replace(jsonMatch[1], '').trim();
+                    if (remaining.includes('<') && !htmlPart) {
+                        htmlPart = remaining.replace(/```\w*/g, '').replace(/```/g, '').trim();
+                    }
+                } catch (e) { /* not valid JSON, skip */ }
+            }
+        }
+
+        // Strategy 3: HTML detection by tag presence
+        if (!htmlPart && text.includes('<div') || text.includes('<table') || text.includes('<ol')) {
+            // Extract the HTML portion (everything from first < to matching structure)
+            const htmlMatch = text.match(/(<(?:div|table|section|header|ol|ul|h[1-6])[\s\S]*>)/i);
+            if (htmlMatch) htmlPart = htmlMatch[0];
+        }
+
+        if (htmlPart || jsonPart) {
+            if (htmlPart) setHtmlInput(htmlPart);
+            if (jsonPart) setJsonInput(jsonPart);
+            const parts = [];
+            if (htmlPart) parts.push('HTML');
+            if (jsonPart) parts.push('JSON');
+            setSmartPasteFeedback(`\u2705 T\u1ef1 \u0111\u1ed9ng t\u00e1ch ${parts.join(' + ')} th\u00e0nh c\u00f4ng!`);
+            setTimeout(() => setSmartPasteFeedback(''), 3000);
+        } else {
+            setSmartPasteFeedback('\u26a0\ufe0f Kh\u00f4ng nh\u1eadn di\u1ec7n \u0111\u01b0\u1ee3c HTML/JSON. H\u00e3y d\u00e1n ri\u00eang v\u00e0o t\u1eebng \u00f4.');
+            setTimeout(() => setSmartPasteFeedback(''), 4000);
+        }
+    };
+
+    // --- DOCX Export (improved walker) ---
     const handleExportDocx = async () => {
         if (!printAreaRef.current) return;
-        const children = [];
+        const allChildren = [];
 
-        // Walk the DOM tree of the rendered preview
-        const walkNode = (node) => {
+        const walkNode = (node, ctx = {}) => {
             if (node.nodeType === Node.TEXT_NODE) {
                 const text = node.textContent.trim();
-                if (text) return [new TextRun({ text, size: 22 })];
+                if (text) return [new TextRun({ text, size: 22, bold: ctx.bold, italics: ctx.italic })];
                 return [];
             }
             if (node.nodeType !== Node.ELEMENT_NODE) return [];
-
             const tag = node.tagName.toLowerCase();
-            const childRuns = [];
-            for (const child of node.childNodes) {
-                childRuns.push(...walkNode(child));
+            // Skip page indicators and no-print elements
+            if (node.classList && (node.classList.contains('no-print') || node.classList.contains('select-none'))) return [];
+
+            const computed = window.getComputedStyle(node);
+            const isBold = ctx.bold || computed.fontWeight >= 600;
+            const isItalic = ctx.italic || computed.fontStyle === 'italic';
+            const childCtx = { ...ctx, bold: isBold, italic: isItalic };
+
+            // --- 2-column grid → DOCX table with 2 columns ---
+            if (tag === 'div' && node.className && typeof node.className === 'string' && node.className.includes('grid-cols-2')) {
+                const cols = [...node.children];
+                if (cols.length >= 2) {
+                    const leftItems = [];
+                    const rightItems = [];
+                    // Walk each column to get text paragraphs
+                    const walkColChildren = (col, target) => {
+                        for (const child of col.childNodes) {
+                            const runs = walkNode(child, childCtx);
+                            if (runs.length > 0) {
+                                target.push(new Paragraph({ children: runs, spacing: { after: 40 } }));
+                            }
+                        }
+                    };
+                    walkColChildren(cols[0], leftItems);
+                    walkColChildren(cols[1], rightItems);
+                    if (leftItems.length === 0) leftItems.push(new Paragraph({ text: '' }));
+                    if (rightItems.length === 0) rightItems.push(new Paragraph({ text: '' }));
+                    allChildren.push(new Table({
+                        rows: [new TableRow({
+                            children: [
+                                new TableCell({ children: leftItems, width: { size: 50, type: WidthType.PERCENTAGE } }),
+                                new TableCell({ children: rightItems, width: { size: 50, type: WidthType.PERCENTAGE } }),
+                            ],
+                        })],
+                        width: { size: 100, type: WidthType.PERCENTAGE },
+                    }));
+                    allChildren.push(new Paragraph({ text: '', spacing: { after: 120 } }));
+                    return [];
+                }
             }
 
-            // Handle table elements
+            // --- Table ---
             if (tag === 'table') {
                 const rows = [];
-                const trs = node.querySelectorAll('tr');
-                trs.forEach(tr => {
+                node.querySelectorAll('tr').forEach(tr => {
                     const cells = [];
                     tr.querySelectorAll('td, th').forEach(cell => {
-                        const isBold = cell.tagName === 'TH' || cell.querySelector('b, strong') || window.getComputedStyle(cell).fontWeight >= 600;
+                        const cellBold = cell.tagName === 'TH' || window.getComputedStyle(cell).fontWeight >= 600;
                         cells.push(new TableCell({
-                            children: [new Paragraph({
-                                children: [new TextRun({ text: cell.textContent.trim(), bold: !!isBold, size: 20 })],
-                            })],
+                            children: [new Paragraph({ children: [new TextRun({ text: cell.textContent.trim(), bold: cellBold, size: 20 })] })],
                             width: { size: Math.floor(100 / Math.max(tr.children.length, 1)), type: WidthType.PERCENTAGE },
                         }));
                     });
                     if (cells.length > 0) rows.push(new TableRow({ children: cells }));
                 });
                 if (rows.length > 0) {
-                    children.push(new Table({ rows, width: { size: 100, type: WidthType.PERCENTAGE } }));
-                    children.push(new Paragraph({ text: '', spacing: { after: 120 } }));
+                    allChildren.push(new Table({ rows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+                    allChildren.push(new Paragraph({ text: '', spacing: { after: 120 } }));
                 }
                 return [];
             }
 
-            // Headings
+            // --- Ordered list ---
+            if (tag === 'ol') {
+                [...node.children].forEach((li, idx) => {
+                    if (li.tagName === 'LI') {
+                        allChildren.push(new Paragraph({
+                            children: [new TextRun({ text: `${idx + 1}. ${li.textContent.trim()}`, size: 22, bold: isBold })],
+                            spacing: { after: 40 },
+                            indent: { left: 360 },
+                        }));
+                    }
+                });
+                return [];
+            }
+
+            // --- Unordered list ---
+            if (tag === 'ul') {
+                [...node.children].forEach(li => {
+                    if (li.tagName === 'LI') {
+                        allChildren.push(new Paragraph({
+                            children: [new TextRun({ text: `\u2022 ${li.textContent.trim()}`, size: 22, bold: isBold })],
+                            spacing: { after: 40 },
+                            indent: { left: 360 },
+                        }));
+                    }
+                });
+                return [];
+            }
+
+            // --- Headings ---
             if (tag === 'h1') {
-                children.push(new Paragraph({
-                    children: childRuns.length ? childRuns.map(r => new TextRun({ ...r, bold: true, size: 32 })) : [new TextRun({ text: node.textContent.trim(), bold: true, size: 32 })],
-                    heading: HeadingLevel.HEADING_1,
-                    alignment: AlignmentType.CENTER,
+                allChildren.push(new Paragraph({
+                    children: [new TextRun({ text: node.textContent.trim(), bold: true, size: 32 })],
+                    heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER,
                     spacing: { before: 200, after: 200 },
                 }));
                 return [];
             }
             if (tag === 'h2') {
-                children.push(new Paragraph({
+                allChildren.push(new Paragraph({
                     children: [new TextRun({ text: node.textContent.trim(), bold: true, size: 28 })],
-                    heading: HeadingLevel.HEADING_2,
-                    spacing: { before: 160, after: 120 },
+                    heading: HeadingLevel.HEADING_2, spacing: { before: 160, after: 120 },
                 }));
                 return [];
             }
             if (tag === 'h3' || tag === 'h4') {
-                children.push(new Paragraph({
+                allChildren.push(new Paragraph({
                     children: [new TextRun({ text: node.textContent.trim(), bold: true, size: 24 })],
-                    heading: HeadingLevel.HEADING_3,
-                    spacing: { before: 120, after: 80 },
+                    heading: HeadingLevel.HEADING_3, spacing: { before: 120, after: 80 },
                 }));
                 return [];
             }
 
-            // Paragraph / div with text
+            // --- Leaf div/p/span with text ---
+            const childRuns = [];
+            for (const child of node.childNodes) childRuns.push(...walkNode(child, childCtx));
+
             if ((tag === 'p' || tag === 'div' || tag === 'span') && childRuns.length > 0) {
-                // Skip if this is a container for block-level children
-                const hasBlockChildren = [...node.children].some(c => ['DIV', 'TABLE', 'H1', 'H2', 'H3', 'P'].includes(c.tagName));
+                const hasBlockChildren = [...node.children].some(c => ['DIV', 'TABLE', 'H1', 'H2', 'H3', 'H4', 'P', 'OL', 'UL'].includes(c.tagName));
                 if (!hasBlockChildren && node.textContent.trim()) {
-                    const isBold = window.getComputedStyle(node).fontWeight >= 600;
-                    children.push(new Paragraph({
-                        children: [new TextRun({ text: node.textContent.trim(), bold: isBold, size: 22 })],
+                    allChildren.push(new Paragraph({
+                        children: [new TextRun({ text: node.textContent.trim(), bold: isBold, italics: isItalic, size: 22 })],
                         spacing: { after: 60 },
                     }));
                     return [];
                 }
             }
 
-            // Bold / Italic inline
-            if (tag === 'b' || tag === 'strong') {
-                return [new TextRun({ text: node.textContent.trim(), bold: true, size: 22 })];
-            }
-            if (tag === 'i' || tag === 'em') {
-                return [new TextRun({ text: node.textContent.trim(), italics: true, size: 22 })];
-            }
+            // --- Bold / Italic inline ---
+            if (tag === 'b' || tag === 'strong') return [new TextRun({ text: node.textContent.trim(), bold: true, size: 22 })];
+            if (tag === 'i' || tag === 'em') return [new TextRun({ text: node.textContent.trim(), italics: true, size: 22 })];
+            if (tag === 'li') return [new TextRun({ text: node.textContent.trim(), size: 22, bold: isBold })];
 
             return childRuns;
         };
 
-        // Walk from the print target
-        const printTarget = printAreaRef.current.querySelector('.print-target') || printAreaRef.current;
-        for (const child of printTarget.childNodes) {
-            walkNode(child);
+        // Walk ALL .print-target elements (multi-page)
+        const printTargets = printAreaRef.current.querySelectorAll('.print-target');
+        if (printTargets.length > 0) {
+            printTargets.forEach((target, idx) => {
+                if (idx > 0) allChildren.push(new Paragraph({ text: '', spacing: { before: 400, after: 200 }, border: { bottom: { style: 'single', size: 1, color: 'cccccc' } } }));
+                for (const child of target.childNodes) walkNode(child, {});
+            });
+        } else {
+            for (const child of printAreaRef.current.childNodes) walkNode(child, {});
         }
 
-        if (children.length === 0) {
-            children.push(new Paragraph({ children: [new TextRun({ text: printTarget.textContent.trim() || 'No content', size: 22 })] }));
+        if (allChildren.length === 0) {
+            allChildren.push(new Paragraph({ children: [new TextRun({ text: printAreaRef.current.textContent.trim() || 'No content', size: 22 })] }));
         }
 
-        const doc = new Document({ sections: [{ children }] });
+        const doc = new Document({ sections: [{ children: allChildren }] });
         const blob = await Packer.toBlob(doc);
         saveAs(blob, `DocStudio_Template_${currentLang.toUpperCase()}.docx`);
     };
@@ -515,14 +638,15 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
         }
         @media print {
           @page { size: A4; margin: 0; }
-          * { overflow: visible !important; }
-          body * { visibility: hidden; }
-          .print-target, .print-target * { visibility: visible; }
+          body { background: white !important; margin: 0; padding: 0; }
+          .no-print { display: none !important; }
+          .min-h-screen { min-height: 0 !important; }
           .print-target {
             position: relative !important;
             width: 210mm !important;
             ${isHeightTrimmed ? 'height: auto !important; min-height: auto !important;' : 'height: 297mm !important; min-height: 297mm !important;'}
             margin: 0 !important;
+            padding: 12mm !important;
             box-shadow: none !important;
             border: none !important;
             background-color: white !important;
@@ -535,6 +659,10 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
           .print-target * {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+          }
+          /* Reset zoom transform */
+          [style*="transform"] {
+            transform: none !important;
           }
         }
       `}} />
@@ -604,8 +732,33 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                             <PromptHelper title={docType === 'twocol' ? '📓 NotebookLM — Văn bản 2 Cột' : 'Hướng dẫn NotebookLM (HTML + JSON)'} promptText={docType === 'twocol' ? TWO_COL_NOTEBOOKLM_PROMPT : TEMPLATE_NOTEBOOKLM_PROMPT} />
                         )}
 
-                        {/* HTML Template Input */}
+                        {/* Smart Paste + HTML/JSON Inputs */}
                         <div className="p-4 space-y-3">
+                            {/* Smart Paste */}
+                            <div className="p-3 bg-gradient-to-r from-amber-50 to-fuchsia-50 border border-amber-200 rounded-xl space-y-2">
+                                <label className="text-xs font-bold text-amber-700 flex items-center gap-1.5 uppercase tracking-wide">
+                                    <Wand2 size={13} /> Smart Paste (Dán tất cả vào đây)
+                                </label>
+                                <textarea
+                                    className="w-full h-20 p-2.5 bg-white border border-amber-200 text-slate-700 font-mono text-[10px] leading-relaxed rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+                                    placeholder="Dán toàn bộ output từ NotebookLM/Gemini vào đây (gồm cả HTML + JSON) — hệ thống sẽ tự tách..."
+                                    onPaste={(e) => {
+                                        setTimeout(() => {
+                                            const val = e.target.value;
+                                            smartSplitContent(val);
+                                            e.target.value = '';
+                                        }, 50);
+                                    }}
+                                    onChange={() => {}}
+                                />
+                                {smartPasteFeedback && (
+                                    <div className={`text-[10px] font-bold px-2 py-1 rounded ${smartPasteFeedback.startsWith('\u2705') ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                        {smartPasteFeedback}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* HTML Template Input */}
                             <div className="flex items-center justify-between">
                                 <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5 uppercase tracking-wide">
                                     <Code size={13} /> HTML Template
@@ -623,7 +776,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                                 </div>
                             </div>
                             <textarea
-                                className="w-full h-40 p-3 bg-[#1E1E1E] text-blue-300 font-mono text-[10px] leading-relaxed rounded-xl focus:outline-none focus:ring-2 focus:ring-fuchsia-500 resize-none shadow-inner"
+                                className="w-full h-32 p-3 bg-[#1E1E1E] text-blue-300 font-mono text-[10px] leading-relaxed rounded-xl focus:outline-none focus:ring-2 focus:ring-fuchsia-500 resize-none shadow-inner"
                                 value={htmlInput}
                                 onChange={(e) => setHtmlInput(e.target.value)}
                                 spellCheck="false"
@@ -638,7 +791,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                                 {jsonError && <span className="text-[9px] text-red-500 font-bold bg-red-50 px-1.5 py-0.5 rounded truncate max-w-[140px]">{jsonError}</span>}
                             </div>
                             <textarea
-                                className={`w-full h-36 p-3 bg-[#1E1E1E] text-emerald-300 font-mono text-[10px] leading-relaxed rounded-xl focus:outline-none focus:ring-2 focus:ring-fuchsia-500 resize-none shadow-inner ${jsonError ? 'ring-2 ring-red-500' : ''}`}
+                                className={`w-full h-28 p-3 bg-[#1E1E1E] text-emerald-300 font-mono text-[10px] leading-relaxed rounded-xl focus:outline-none focus:ring-2 focus:ring-fuchsia-500 resize-none shadow-inner ${jsonError ? 'ring-2 ring-red-500' : ''}`}
                                 value={jsonInput}
                                 onChange={(e) => setJsonInput(e.target.value)}
                                 spellCheck="false"
