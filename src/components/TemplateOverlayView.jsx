@@ -201,6 +201,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     const [promptSource, setPromptSource] = useState('gemini');
     const [docType, setDocType] = useState('single'); // 'single' | 'twocol'
     const [showJsonInput, setShowJsonInput] = useState(false);
+    const [smartPasteMsg, setSmartPasteMsg] = useState('');
 
     // Sync with global lang if it changes, but allow local override
     useEffect(() => {
@@ -350,6 +351,54 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
             if (newIdx >= FONT_SIZES.length) newIdx = FONT_SIZES.length - 1;
             return newIdx;
         });
+    };
+
+    // -----------------------------------------------------------------
+    // Smart auto-split: detect HTML+JSON in pasted content
+    // -----------------------------------------------------------------
+    const handleHtmlPaste = (e) => {
+        const pasted = e.clipboardData.getData('text');
+        if (!pasted || !pasted.trim()) return;
+
+        const text = pasted.trim();
+        // Quick check: does the pasted content contain BOTH HTML tags and a JSON object?
+        const hasHtmlTags = /<(?:div|table|section|h[1-6]|ol|ul|p|span)[\s>]/i.test(text);
+        const hasJsonBlock = /\{[\s\S]*"vn"\s*:/i.test(text);
+
+        if (hasHtmlTags && hasJsonBlock) {
+            e.preventDefault(); // intercept paste
+
+            // Find the boundary: last occurrence of a top-level JSON object
+            // Strategy: find the last '{' that starts a valid JSON block going to the end
+            let jsonStart = -1;
+            // Search backwards for a line that starts with { (top-level JSON)
+            const lines = text.split('\n');
+            for (let i = lines.length - 1; i >= 0; i--) {
+                const trimmed = lines[i].trim();
+                if (trimmed === '{' || trimmed.startsWith('{')) {
+                    // Check if from this line to the end forms valid JSON
+                    const candidate = lines.slice(i).join('\n').trim();
+                    try {
+                        const parsed = JSON.parse(candidate);
+                        if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+                            jsonStart = i;
+                            break;
+                        }
+                    } catch (_) { /* not valid JSON from this point, keep searching */ }
+                }
+            }
+
+            if (jsonStart >= 0) {
+                const htmlPart = lines.slice(0, jsonStart).join('\n').trim();
+                const jsonPart = lines.slice(jsonStart).join('\n').trim();
+                setHtmlInput(htmlPart);
+                setJsonInput(jsonPart);
+                setSmartPasteMsg('\u2705 T\u1ef1 \u0111\u1ed9ng t\u00e1ch HTML + JSON th\u00e0nh c\u00f4ng!');
+                setTimeout(() => setSmartPasteMsg(''), 3000);
+                return;
+            }
+        }
+        // If no split needed, let default paste happen
     };
 
     // -----------------------------------------------------------------
@@ -729,9 +778,15 @@ ${pagesHtml}
                                 className="w-full h-52 p-3 bg-[#1E1E1E] text-blue-300 font-mono text-[10px] leading-relaxed rounded-xl focus:outline-none focus:ring-2 focus:ring-fuchsia-500 resize-none shadow-inner"
                                 value={htmlInput}
                                 onChange={(e) => setHtmlInput(e.target.value)}
+                                onPaste={handleHtmlPaste}
                                 spellCheck="false"
-                                placeholder="Dán HTML từ Gemini/NotebookLM vào đây. Hệ thống sẽ render trực tiếp..."
+                                placeholder="Dán HTML từ Gemini/NotebookLM vào đây. Nếu có cả JSON, hệ thống sẽ tự tách..."
                             />
+                            {smartPasteMsg && (
+                                <div className="text-[10px] font-bold px-2 py-1 rounded bg-emerald-100 text-emerald-700 transition-all">
+                                    {smartPasteMsg}
+                                </div>
+                            )}
 
                             {/* Collapsible JSON Input (for multilingual mode) */}
                             <button
