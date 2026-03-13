@@ -677,9 +677,11 @@ Yêu cầu dành cho Mã HTML:
 
 4. Chống Tràn Dòng & Xếp Chữ: BẮT BUỘC dùng class "break-words" hoặc "whitespace-pre-wrap", "text-[10px]" hoặc "text-xs", "leading-tight".
 
-5. KHÔNG FIX CỨNG CHIỀU CAO: Tuyệt đối không dùng h-32, h-64, min-h-[200px]. Để chiều cao tự co giãn. Dùng padding nhẹ (p-4) thay thế.
+5. KHÔNG FIX CỨNG CHIỀU CAO: Tuyệt đối không dùng h-32, h-64, min-h-[200px]. Để chiều cao tự co giãn.
 
-6. Chỉ cần trả về nội dung bên trong cặp thẻ <div> bọc ngoài cùng. Div ngoài cùng phải có class: w-[210mm] min-h-[297mm] mx-auto bg-white p-6 font-sans text-[11px] leading-tight.`;
+6. ⛔ KHÔNG bao bọc nội dung bằng div có w-[210mm] hoặc min-h-[297mm]. Hệ thống sẽ tự đặt khung A4. Chỉ trả về NỘI DUNG TRỰC TIẾP (grid 2 cột, header, v.v.).
+
+7. 📄 NẾU TÀI LIỆU CÓ NHIỀU TRANG: Đặt dấu phân cách <!-- PAGE BREAK --> giữa mỗi trang. Hệ thống sẽ tự động tách thành các trang A4 riêng biệt. Mỗi trang là một khối HTML độc lập.`;
 
 
 export const TWO_COL_JSON_PROMPT = `Dựa trên bức ảnh tài liệu 2 cột này, và dựa vào danh sách các Biến Ngoặc Nhọn {{...}} mà bạn đã tạo cho tôi trong mẫu HTML, hãy giúp tôi trích xuất toàn bộ dữ liệu chữ số đang có trên giấy.
@@ -701,7 +703,9 @@ Ví dụ cấu trúc mong muốn:
   "section_banned_title": { "vn": "【Cấm / Nghiêm cấm】", "en": "【Banned/Prohibited】", "jp": "【禁止・禁忌】" },
   "banned_item_1": { "vn": "Chỉ sử dụng một lần.", "en": "Single-use-only.", "jp": "使い捨て。" },
   "op_step_1": { "vn": "Đưa ống thu máu về nhiệt độ phòng...", "en": "Prepare the blood collection tube at room temperature...", "jp": "採血管を室温に..." }
-}`;
+}
+
+📄 NẾU TÀI LIỆU CÓ NHIỀU TRANG: Gom TẤT CẢ biến {{...}} của mọi trang vào 1 JSON duy nhất. Dùng prefix phân biệt trang (ví dụ: page1_title, page2_title).`;
 
 
 export const TWO_COL_NOTEBOOKLM_PROMPT = `# HƯỚNG DẪN SỬ DỤNG NOTEBOOKLM ĐỂ TẠO HTML + JSON (VĂN BẢN 2 CỘT)
@@ -734,7 +738,8 @@ Khi được yêu cầu "Vẽ HTML" hoặc "Tạo template":
 - Hình vẽ → placeholder <div class="border p-2 text-center">{{figure_caption}}</div>.
 - Chống tràn: break-words, text-[10px] hoặc text-xs, leading-tight.
 - KHÔNG fix chiều cao. Dùng padding nhẹ thay thế.
-- Div ngoài cùng: w-[210mm] min-h-[297mm] mx-auto bg-white p-6 font-sans text-[11px] leading-tight.
+- ⛔ KHÔNG bao bọc bằng div có w-[210mm] hoặc min-h-[297mm]. Hệ thống tự đặt khung A4.
+- 📄 Nếu nhiều trang: đặt <!-- PAGE BREAK --> giữa mỗi trang.
 
 ## NHIỆM VỤ 2: TRÍCH XUẤT JSON
 Khi được yêu cầu "Trích xuất JSON" hoặc "Tạo dữ liệu":
@@ -744,6 +749,7 @@ Khi được yêu cầu "Trích xuất JSON" hoặc "Tạo dữ liệu":
 - Dịch ĐẦY ĐỦ tất cả các mục trong CẢ HAI CỘT (trái + phải).
 - Mỗi mục danh sách đánh số → 1 key riêng.
 - KHÔNG bỏ sót bất kỳ mục nào.
+- 📄 Nếu nhiều trang: gom TẤT CẢ biến vào 1 JSON. Dùng prefix phân biệt (page1_, page2_).
 
 Ví dụ:
 {

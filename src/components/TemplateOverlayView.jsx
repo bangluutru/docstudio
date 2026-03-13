@@ -73,64 +73,72 @@ const flattenAndExtractLangFields = (data) => {
 };
 
 // =====================================================================
+// Sanitize AI HTML: strip outer wrapper div that causes double w-[210mm]
+// =====================================================================
+const sanitizeHtml = (html) => {
+    if (!html) return '';
+    let clean = html.trim();
+    // Strip Gemini citation artifacts
+    clean = clean.replace(/\[cite_start\]\s*/g, '').replace(/\[cite:\s*\d+\]/g, '');
+    // Remove markdown code fences
+    clean = clean.replace(/^```html?\s*/i, '').replace(/```\s*$/i, '').trim();
+    // Strip outer wrapper div that has w-[210mm] or min-h-[297mm] to avoid double sizing
+    const outerMatch = clean.match(/^<div[^>]*class="[^"]*w-\[210mm\][^"]*"[^>]*>([\s\S]*)<\/div>\s*$/);
+    if (outerMatch) {
+        clean = outerMatch[1].trim();
+    }
+    return clean;
+};
+
+// =====================================================================
 // Dynamic HTML interpolator
 // Replaces {{key}} with values from parsed Data
+// Splits by <!-- PAGE BREAK --> and returns array of page HTML strings
 // =====================================================================
 const interpolateHTML = (htmlTemplate, parsedData, currentLang) => {
-    if (!htmlTemplate) return '';
+    if (!htmlTemplate) return [''];
 
-    // Strip Gemini citation artifacts like [cite_start] and [cite: 5]
-    let cleanHtml = htmlTemplate.replace(/\[cite_start\]\s*/g, '').replace(/\[cite:\s*\d+\]/g, '');
+    const sanitized = sanitizeHtml(htmlTemplate);
 
-    return cleanHtml.replace(/\{\{([\w_]+)\}\}/g, (match, keyName) => {
-        // Try exact match first, then fuzzy match
-        let valObj = parsedData[keyName];
-
-        // Fuzzy search for partial keys if exact not found (e.g., 'customer_name' matches 'doc_header_customerName')
-        if (!valObj) {
-            const foundKey = Object.keys(parsedData).find(k => k.toLowerCase().includes(keyName.toLowerCase()));
-            if (foundKey) valObj = parsedData[foundKey];
-        }
-
-        if (valObj !== undefined && valObj !== null) {
-            // If it's a language object
-            if (typeof valObj === 'object' && ('vn' in valObj || 'en' in valObj || 'jp' in valObj)) {
-                return valObj[currentLang] || valObj['vn'] || valObj['en'] || valObj['jp'] || '';
+    const interpolateSingle = (html) => {
+        return html.replace(/\{\{([\w_]+)\}\}/g, (match, keyName) => {
+            let valObj = parsedData[keyName];
+            if (!valObj) {
+                const foundKey = Object.keys(parsedData).find(k => k.toLowerCase().includes(keyName.toLowerCase()));
+                if (foundKey) valObj = parsedData[foundKey];
             }
-            // If it's just a string/number
-            return String(valObj);
-        }
+            if (valObj !== undefined && valObj !== null) {
+                if (typeof valObj === 'object' && ('vn' in valObj || 'en' in valObj || 'jp' in valObj)) {
+                    return valObj[currentLang] || valObj['vn'] || valObj['en'] || valObj['jp'] || '';
+                }
+                return String(valObj);
+            }
+            return `<span class="bg-red-100 text-red-600 border border-red-300 px-1 rounded text-xs font-mono" title="Thiếu dữ liệu: ${keyName}">[${keyName}]</span>`;
+        });
+    };
 
-        // Return a red placeholder if data is missing, so it's visible to user
-        return `<span class="bg-red-100 text-red-600 border border-red-300 px-1 rounded text-xs font-mono" title="Thiếu dữ liệu (Missing Key): ${keyName}">[${keyName}]</span>`;
-    });
+    // Split by PAGE BREAK marker (case-insensitive, flexible whitespace)
+    const pages = sanitized.split(/<!--\s*PAGE\s*BREAK\s*-->/i).map(p => p.trim()).filter(Boolean);
+    return pages.length > 0 ? pages.map(interpolateSingle) : [interpolateSingle(sanitized)];
 };
 
 const htmlPromptText = `Chào bạn, tôi muốn nhờ bạn đọc hình ảnh phiếu kết quả đính kèm và tái tạo giúp tôi toàn bộ hình thức đồ họa của tờ giấy thành một đoạn mã HTML kết hợp Tailwind CSS.
 
 Yêu cầu dành cho Mã HTML:
 1. Vẽ lại khung xương (tables, borders, layouts) y hệt ảnh gốc bằng Tailwind CSS. Hãy để độ rộng các cột tự động co giãn mềm dẻo theo lượng text bên trong (flexible width), KHÔNG DÙNG phần trăm cứng.
-2. Tuyệt đối không gõ cứng (hardcode) chữ của bất kỳ ngôn ngữ nào vào HTML. Mọi văn bản xuất hiện trên tờ giấy, từ "Chữ tĩnh" (tiêu đề cột, tên công ty in sẵn) đến "Chữ động" (thông số do con người điền) ĐỀU PHẢI được thay thế bằng một Biến Ngoặc Nhọn (Ví dụ: {{label_so_lo}} cho tiêu đề, {{so_lo}} cho chữ điền vào).
-3. Chống Tràn Dòng & Xếp Chữ Dọc: Bản dịch tiếng Việt/Anh rất dài. BẮT BUỘC:
-   - Ép bẻ từ bằng class "break-words" hoặc "whitespace-pre-wrap".
-   - Xếp chữ theo chiều dọc "flex-col".
-   - Dùng class thu nhỏ chữ như "text-[10px]" hoặc "text-xs", "leading-tight".
-4. KHÔNG FIX CỨNG CHIỀU CAO: Tuyệt đối không dùng các class fix chiều cao (như h-32, h-64, min-h-[200px]) cho các khoảng trống/ô trống. Hãy để chiều cao tự động co giãn. Để tạo khoảng không gian thưa, chỉ dùng padding nhẹ (p-4).
-5. Chỉ cần trả về nội dung bên trong cặp thẻ <div> bọc ngoài cùng.`;
+2. Tuyệt đối không gõ cứng (hardcode) chữ của bất kỳ ngôn ngữ nào vào HTML. Mọi văn bản ĐỀU PHẢI được thay thế bằng Biến Ngoặc Nhọn (Ví dụ: {{label_so_lo}}, {{so_lo}}).
+3. Chống Tràn Dòng: BẮT BUỘC dùng class "break-words", "text-[10px]" hoặc "text-xs", "leading-tight".
+4. KHÔNG FIX CỨNG CHIỀU CAO: Không dùng h-32, h-64, min-h-[200px]. Để chiều cao tự co giãn.
+5. KHÔNG bao bọc bằng div có w-[210mm] hoặc min-h-[297mm]. Hệ thống sẽ tự đặt khung A4. Chỉ trả về NỘI DUNG bên trong.
+6. Nếu tài liệu có NHIỀU TRANG: Đặt dấu phân cách <!-- PAGE BREAK --> giữa mỗi trang. Hệ thống sẽ tự động tách thành các trang A4 riêng biệt.`;
 
-const jsonPromptText = `Dựa trên bức ảnh phiếu kết quả này, và dựa vào danh sách các Biến Ngoặc Nhọn {{...}} mà bạn đã tạo cho tôi trong mẫu HTML, hãy giúp tôi trích xuất toàn bộ dữ liệu chữ số đang được điền trên giấy.
+const jsonPromptText = `Dựa trên bức ảnh phiếu kết quả, và dựa vào danh sách các Biến Ngoặc Nhọn {{...}} trong mẫu HTML, hãy trích xuất toàn bộ dữ liệu.
 
 Yêu cầu đối với JSON:
-1. Xin hãy xuất ra một chuỗi JSON phẳng. (KHÔNG bọc trong mảng Array []).
-2. Key của JSON phải trùng khớp chính xác 100% với tên các Biến Ngoặc Nhọn ở bản thiết kế HTML.
-3. Mỗi giá trị (Value) xin hãy dịch sang 3 ngôn ngữ và cung cấp dưới dạng Object với đuôi _vn, _en, _jp.
-
-Ví dụ cấu trúc mong muốn:
-{
-  "label_so_lo": { "vn": "Số lô", "en": "Lot No.", "jp": "ロット番号" },
-  "so_lo": { "vn": "1234", "en": "1234", "jp": "1234" },
-  "ket_qua_kiem_nghiem": { "vn": "Đạt", "en": "Pass", "jp": "適" }
-}`;
+1. Xuất ra một chuỗi JSON phẳng. (KHÔNG bọc trong mảng Array []).
+2. Key của JSON phải trùng khớp chính xác 100% với tên các Biến Ngoặc Nhọn.
+3. Mỗi giá trị dịch sang 3 ngôn ngữ: { "vn": "...", "en": "...", "jp": "..." }
+4. Nếu tài liệu có NHIỀU TRANG: Gom TẤT CẢ dữ liệu của mọi trang vào 1 JSON duy nhất. Dùng prefix để phân biệt trang (ví dụ: page1_title, page2_title).`;
 
 const PromptHelper = ({ title, promptText }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -278,7 +286,8 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     // -----------------------------------------------------------------
     // RENDER: Interpolate HTML
     // -----------------------------------------------------------------
-    const finalHtml = useMemo(() => {
+    // Returns ARRAY of page HTML strings
+    const finalPages = useMemo(() => {
         return interpolateHTML(htmlInput, parsedData, currentLang);
     }, [htmlInput, parsedData, currentLang]);
 
@@ -490,22 +499,38 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
             {/* Print CSS */}
             <style dangerouslySetInnerHTML={{
                 __html: `
+        /* Fix: neutralize nested w-[210mm] from AI output */
+        .page-content-wrapper * {
+          box-sizing: border-box !important;
+          max-width: 100% !important;
+        }
+        .page-content-wrapper > div {
+          width: 100% !important;
+          max-width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          border: none !important;
+          box-shadow: none !important;
+          min-height: auto !important;
+        }
         @media print {
           @page { size: A4; margin: 0; }
           * { overflow: visible !important; }
           body * { visibility: hidden; }
           .print-target, .print-target * { visibility: visible; }
           .print-target {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
+            position: relative !important;
             width: 210mm !important;
             ${isHeightTrimmed ? 'height: auto !important; min-height: auto !important;' : 'height: 297mm !important; min-height: 297mm !important;'}
             margin: 0 !important;
             box-shadow: none !important;
             border: none !important;
             background-color: white !important;
-            overflow: hidden !important; 
+            overflow: hidden !important;
+            page-break-after: always;
+          }
+          .print-target:last-child {
+            page-break-after: auto;
           }
           .print-target * {
             -webkit-print-color-adjust: exact !important;
@@ -668,35 +693,46 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                         printLabel="PDF"
                     />
 
-                    {/* Document Canvas */}
+                    {/* Document Canvas — Multi-page */}
                     <div ref={printAreaRef} className="flex flex-col gap-10 pb-24 items-center w-full" style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center', transition: 'transform 0.2s ease' }}>
-                        <div
-                            className={`bg-white shadow-2xl transition-all print-target outline-none relative 
-                            ${['text-[9px]', 'text-[10px]', 'text-[11px]', 'text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-4xl', 'text-5xl', 'text-6xl'][bodyFontSizeIndex]}
-                            [&>div]:max-w-none [&>div]:w-full [&>div]:m-0 [&>div]:border-none [&>div]:shadow-none
-                            ${isEditing ? 'ring-4 ring-amber-400 border-amber-500' : ''}
-                            ${customFont ? 'custom-font-active' : ''}`}
-                            style={{
-                                width: '210mm',
-                                minHeight: isHeightTrimmed ? 'auto' : '297mm',
-                                padding: '12mm',
-                                ...(customFont ? { '--custom-font': customFont, fontFamily: customFont } : {}),
-                            }}
-                            contentEditable={isEditing}
-                            suppressContentEditableWarning={true}
-                            onClick={handlePreviewClick}
-                        >
-                            {/* Inner Scaling Wrapper */}
+                        {finalPages.map((pageHtml, pageIdx) => (
                             <div
+                                key={pageIdx}
+                                className={`bg-white shadow-2xl transition-all print-target outline-none relative 
+                                ${['text-[9px]', 'text-[10px]', 'text-[11px]', 'text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-4xl', 'text-5xl', 'text-6xl'][bodyFontSizeIndex]}
+                                ${isEditing ? 'ring-4 ring-amber-400 border-amber-500' : ''}
+                                ${customFont ? 'custom-font-active' : ''}`}
                                 style={{
-                                    transform: `scale(${contentScale})`,
-                                    transformOrigin: 'top left',
-                                    width: `${100 / contentScale}%`,
-                                    ...(isHeightTrimmed ? {} : { minHeight: `${100 / contentScale}%` })
+                                    width: '210mm',
+                                    minHeight: isHeightTrimmed ? 'auto' : '297mm',
+                                    padding: '12mm',
+                                    boxSizing: 'border-box',
+                                    overflow: 'hidden',
+                                    ...(customFont ? { '--custom-font': customFont, fontFamily: customFont } : {}),
                                 }}
-                                dangerouslySetInnerHTML={{ __html: finalHtml }}
-                            />
-                        </div>
+                                contentEditable={isEditing}
+                                suppressContentEditableWarning={true}
+                                onClick={handlePreviewClick}
+                            >
+                                {/* Page indicator */}
+                                {finalPages.length > 1 && (
+                                    <div className="absolute top-2 right-3 text-[9px] font-bold text-slate-300 no-print select-none">
+                                        {pageIdx + 1} / {finalPages.length}
+                                    </div>
+                                )}
+                                {/* Inner Scaling + Content Wrapper */}
+                                <div
+                                    className="page-content-wrapper"
+                                    style={{
+                                        transform: `scale(${contentScale})`,
+                                        transformOrigin: 'top left',
+                                        width: `${100 / contentScale}%`,
+                                        ...(isHeightTrimmed ? {} : { minHeight: `${100 / contentScale}%` })
+                                    }}
+                                    dangerouslySetInnerHTML={{ __html: pageHtml }}
+                                />
+                            </div>
+                        ))}
                     </div>
                 </main>
             </div>
