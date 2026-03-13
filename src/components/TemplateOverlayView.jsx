@@ -18,7 +18,6 @@ import {
     ChevronDown,
     ChevronRight,
 } from 'lucide-react';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType } from 'docx';
 import { saveAs } from 'file-saver';
 import DocToolbar from './DocToolbar';
 import { TEMPLATE_NOTEBOOKLM_PROMPT, TWO_COL_HTML_PROMPT, TWO_COL_JSON_PROMPT, TWO_COL_NOTEBOOKLM_PROMPT } from '../utils/prompts';
@@ -443,174 +442,104 @@ ${pagesHtml}
         printWindow.document.close();
     };
 
-    // --- DOCX Export (improved walker) ---
+    // --- DOCX Export (HTML-based Word export for high-fidelity formatting) ---
     const handleExportDocx = async () => {
         if (!printAreaRef.current) return;
-        const allChildren = [];
+        const pages = printAreaRef.current.querySelectorAll('.print-target');
+        if (pages.length === 0) return;
 
-        const walkNode = (node, ctx = {}) => {
-            if (node.nodeType === Node.TEXT_NODE) {
-                const text = node.textContent.trim();
-                if (text) return [new TextRun({ text, size: 22, bold: ctx.bold, italics: ctx.italic })];
-                return [];
-            }
-            if (node.nodeType !== Node.ELEMENT_NODE) return [];
-            const tag = node.tagName.toLowerCase();
-            // Skip page indicators and no-print elements
-            if (node.classList && (node.classList.contains('no-print') || node.classList.contains('select-none'))) return [];
-
-            const computed = window.getComputedStyle(node);
-            const isBold = ctx.bold || computed.fontWeight >= 600;
-            const isItalic = ctx.italic || computed.fontStyle === 'italic';
-            const childCtx = { ...ctx, bold: isBold, italic: isItalic };
-
-            // --- 2-column grid → DOCX table with 2 columns ---
-            if (tag === 'div' && node.className && typeof node.className === 'string' && node.className.includes('grid-cols-2')) {
-                const cols = [...node.children];
-                if (cols.length >= 2) {
-                    const leftItems = [];
-                    const rightItems = [];
-                    // Walk each column to get text paragraphs
-                    const walkColChildren = (col, target) => {
-                        for (const child of col.childNodes) {
-                            const runs = walkNode(child, childCtx);
-                            if (runs.length > 0) {
-                                target.push(new Paragraph({ children: runs, spacing: { after: 40 } }));
-                            }
-                        }
-                    };
-                    walkColChildren(cols[0], leftItems);
-                    walkColChildren(cols[1], rightItems);
-                    if (leftItems.length === 0) leftItems.push(new Paragraph({ text: '' }));
-                    if (rightItems.length === 0) rightItems.push(new Paragraph({ text: '' }));
-                    allChildren.push(new Table({
-                        rows: [new TableRow({
-                            children: [
-                                new TableCell({ children: leftItems, width: { size: 50, type: WidthType.PERCENTAGE } }),
-                                new TableCell({ children: rightItems, width: { size: 50, type: WidthType.PERCENTAGE } }),
-                            ],
-                        })],
-                        width: { size: 100, type: WidthType.PERCENTAGE },
-                    }));
-                    allChildren.push(new Paragraph({ text: '', spacing: { after: 120 } }));
-                    return [];
-                }
-            }
-
-            // --- Table ---
-            if (tag === 'table') {
-                const rows = [];
-                node.querySelectorAll('tr').forEach(tr => {
-                    const cells = [];
-                    tr.querySelectorAll('td, th').forEach(cell => {
-                        const cellBold = cell.tagName === 'TH' || window.getComputedStyle(cell).fontWeight >= 600;
-                        cells.push(new TableCell({
-                            children: [new Paragraph({ children: [new TextRun({ text: cell.textContent.trim(), bold: cellBold, size: 20 })] })],
-                            width: { size: Math.floor(100 / Math.max(tr.children.length, 1)), type: WidthType.PERCENTAGE },
-                        }));
-                    });
-                    if (cells.length > 0) rows.push(new TableRow({ children: cells }));
-                });
-                if (rows.length > 0) {
-                    allChildren.push(new Table({ rows, width: { size: 100, type: WidthType.PERCENTAGE } }));
-                    allChildren.push(new Paragraph({ text: '', spacing: { after: 120 } }));
-                }
-                return [];
-            }
-
-            // --- Ordered list ---
-            if (tag === 'ol') {
-                [...node.children].forEach((li, idx) => {
-                    if (li.tagName === 'LI') {
-                        allChildren.push(new Paragraph({
-                            children: [new TextRun({ text: `${idx + 1}. ${li.textContent.trim()}`, size: 22, bold: isBold })],
-                            spacing: { after: 40 },
-                            indent: { left: 360 },
-                        }));
+        // Helper: inline computed styles onto cloned elements for Word compatibility
+        const inlineKeyStyles = (cloneEl, sourceEl) => {
+            const allCloned = cloneEl.querySelectorAll('*');
+            const allSource = sourceEl.querySelectorAll('*');
+            allCloned.forEach((el, idx) => {
+                if (idx >= allSource.length) return;
+                const src = allSource[idx];
+                try {
+                    const cs = window.getComputedStyle(src);
+                    // Font
+                    if (cs.fontWeight >= 600) el.style.fontWeight = 'bold';
+                    if (cs.fontStyle === 'italic') el.style.fontStyle = 'italic';
+                    if (cs.textDecoration?.includes('underline')) el.style.textDecoration = 'underline';
+                    // Text
+                    if (cs.textAlign && cs.textAlign !== 'start') el.style.textAlign = cs.textAlign;
+                    if (cs.fontSize) el.style.fontSize = cs.fontSize;
+                    if (cs.color && cs.color !== 'rgb(0, 0, 0)') el.style.color = cs.color;
+                    // Borders (important for red border sections and tables)
+                    if (cs.borderTopWidth !== '0px' && cs.borderTopStyle !== 'none') {
+                        el.style.border = `${cs.borderTopWidth} ${cs.borderTopStyle} ${cs.borderTopColor}`;
                     }
-                });
-                return [];
-            }
-
-            // --- Unordered list ---
-            if (tag === 'ul') {
-                [...node.children].forEach(li => {
-                    if (li.tagName === 'LI') {
-                        allChildren.push(new Paragraph({
-                            children: [new TextRun({ text: `\u2022 ${li.textContent.trim()}`, size: 22, bold: isBold })],
-                            spacing: { after: 40 },
-                            indent: { left: 360 },
-                        }));
-                    }
-                });
-                return [];
-            }
-
-            // --- Headings ---
-            if (tag === 'h1') {
-                allChildren.push(new Paragraph({
-                    children: [new TextRun({ text: node.textContent.trim(), bold: true, size: 32 })],
-                    heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER,
-                    spacing: { before: 200, after: 200 },
-                }));
-                return [];
-            }
-            if (tag === 'h2') {
-                allChildren.push(new Paragraph({
-                    children: [new TextRun({ text: node.textContent.trim(), bold: true, size: 28 })],
-                    heading: HeadingLevel.HEADING_2, spacing: { before: 160, after: 120 },
-                }));
-                return [];
-            }
-            if (tag === 'h3' || tag === 'h4') {
-                allChildren.push(new Paragraph({
-                    children: [new TextRun({ text: node.textContent.trim(), bold: true, size: 24 })],
-                    heading: HeadingLevel.HEADING_3, spacing: { before: 120, after: 80 },
-                }));
-                return [];
-            }
-
-            // --- Leaf div/p/span with text ---
-            const childRuns = [];
-            for (const child of node.childNodes) childRuns.push(...walkNode(child, childCtx));
-
-            if ((tag === 'p' || tag === 'div' || tag === 'span') && childRuns.length > 0) {
-                const hasBlockChildren = [...node.children].some(c => ['DIV', 'TABLE', 'H1', 'H2', 'H3', 'H4', 'P', 'OL', 'UL'].includes(c.tagName));
-                if (!hasBlockChildren && node.textContent.trim()) {
-                    allChildren.push(new Paragraph({
-                        children: [new TextRun({ text: node.textContent.trim(), bold: isBold, italics: isItalic, size: 22 })],
-                        spacing: { after: 60 },
-                    }));
-                    return [];
-                }
-            }
-
-            // --- Bold / Italic inline ---
-            if (tag === 'b' || tag === 'strong') return [new TextRun({ text: node.textContent.trim(), bold: true, size: 22 })];
-            if (tag === 'i' || tag === 'em') return [new TextRun({ text: node.textContent.trim(), italics: true, size: 22 })];
-            if (tag === 'li') return [new TextRun({ text: node.textContent.trim(), size: 22, bold: isBold })];
-
-            return childRuns;
+                    // Padding
+                    if (cs.padding && cs.padding !== '0px') el.style.padding = cs.padding;
+                    // Margin-bottom for spacing
+                    if (cs.marginBottom && cs.marginBottom !== '0px') el.style.marginBottom = cs.marginBottom;
+                } catch (_) { /* skip elements where getComputedStyle fails */ }
+            });
         };
 
-        // Walk ALL .print-target elements (multi-page)
-        const printTargets = printAreaRef.current.querySelectorAll('.print-target');
-        if (printTargets.length > 0) {
-            printTargets.forEach((target, idx) => {
-                if (idx > 0) allChildren.push(new Paragraph({ text: '', spacing: { before: 400, after: 200 }, border: { bottom: { style: 'single', size: 1, color: 'cccccc' } } }));
-                for (const child of target.childNodes) walkNode(child, {});
+        // Helper: convert CSS Grid divs to HTML tables (Word can't do CSS Grid)
+        const convertGridToTable = (container) => {
+            container.querySelectorAll('[class*="grid-cols-2"]').forEach(grid => {
+                const children = [...grid.children];
+                if (children.length >= 2) {
+                    const table = document.createElement('table');
+                    table.setAttribute('style', 'width:100%;border-collapse:collapse;');
+                    const tr = document.createElement('tr');
+                    children.forEach(child => {
+                        const td = document.createElement('td');
+                        td.setAttribute('style', 'width:50%;vertical-align:top;padding:6px;');
+                        td.innerHTML = child.innerHTML;
+                        tr.appendChild(td);
+                    });
+                    table.appendChild(tr);
+                    grid.replaceWith(table);
+                }
             });
-        } else {
-            for (const child of printAreaRef.current.childNodes) walkNode(child, {});
-        }
+        };
 
-        if (allChildren.length === 0) {
-            allChildren.push(new Paragraph({ children: [new TextRun({ text: printAreaRef.current.textContent.trim() || 'No content', size: 22 })] }));
-        }
+        let pagesHtml = '';
+        pages.forEach((page, idx) => {
+            const wrapper = page.querySelector('.page-content-wrapper');
+            const source = wrapper || page;
 
-        const doc = new Document({ sections: [{ children: allChildren }] });
-        const blob = await Packer.toBlob(doc);
-        saveAs(blob, `DocStudio_Template_${currentLang.toUpperCase()}.docx`);
+            // Clone to avoid modifying the live DOM
+            const clone = source.cloneNode(true);
+
+            // Remove no-print / select-none elements (page indicators, etc.)
+            clone.querySelectorAll('.no-print, .select-none').forEach(el => el.remove());
+
+            // Convert CSS Grid to tables before inlining styles
+            convertGridToTable(clone);
+
+            // Inline computed styles for Word compatibility
+            inlineKeyStyles(clone, source);
+
+            pagesHtml += `<div style="width:100%;${idx < pages.length - 1 ? 'page-break-after:always;' : ''}">${clone.innerHTML}</div>`;
+        });
+
+        // Build complete Word-compatible HTML document
+        const fullHtml = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8">
+<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]-->
+<style>
+  @page { size: A4; margin: 12mm; }
+  body { font-family: '${customFont || 'Arial, Helvetica, sans-serif'}'; font-size: 11pt; line-height: 1.4; color: #1e293b; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { vertical-align: top; padding: 4px; }
+  h1 { font-size: 16pt; font-weight: bold; text-align: center; margin: 8pt 0; }
+  h2 { font-size: 14pt; font-weight: bold; border-bottom: 2px solid #000; padding-bottom: 4pt; margin: 8pt 0; }
+  h3 { font-size: 12pt; font-weight: bold; margin: 6pt 0; }
+  ol, ul { padding-left: 20px; margin: 4pt 0; }
+  li { margin-bottom: 2pt; }
+  p { margin: 2pt 0; }
+</style>
+</head>
+<body>${pagesHtml}</body></html>`;
+
+        const blob = new Blob(['\ufeff' + fullHtml], { type: 'application/msword' });
+        saveAs(blob, `DocStudio_Template_${currentLang.toUpperCase()}.doc`);
     };
 
     const handlePreviewClick = (e) => {
