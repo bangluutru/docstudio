@@ -19,7 +19,7 @@ import {
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType } from 'docx';
 import { saveAs } from 'file-saver';
 import DocToolbar from './DocToolbar';
-import { TEMPLATE_NOTEBOOKLM_PROMPT } from '../utils/prompts';
+import { TEMPLATE_NOTEBOOKLM_PROMPT, TWO_COL_HTML_PROMPT, TWO_COL_JSON_PROMPT, TWO_COL_NOTEBOOKLM_PROMPT } from '../utils/prompts';
 
 // =====================================================================
 // Helper: Deep flatten JSON and group language keys
@@ -189,6 +189,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     const [zoomLevel, setZoomLevel] = useState(100);
     const [customFont, setCustomFont] = useState(null);
     const [promptSource, setPromptSource] = useState('gemini');
+    const [docType, setDocType] = useState('single'); // 'single' | 'twocol'
 
     // Sync with global lang if it changes, but allow local override
     useEffect(() => {
@@ -552,14 +553,30 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                             </button>
                         </div>
 
+                        {/* Document Type Toggle */}
+                        <div className="flex gap-1 p-1 mx-4 mt-2 bg-slate-100 rounded-xl">
+                            <button
+                                onClick={() => setDocType('single')}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${docType === 'single' ? 'bg-white text-fuchsia-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                📄 Biểu mẫu đơn
+                            </button>
+                            <button
+                                onClick={() => setDocType('twocol')}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${docType === 'twocol' ? 'bg-white text-fuchsia-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                📰 Văn bản 2 cột
+                            </button>
+                        </div>
+
                         {/* Prompt Helpers */}
                         {promptSource === 'gemini' ? (
                             <>
-                                <PromptHelper title="Lệnh AI Vẽ HTML Template" promptText={htmlPromptText} />
-                                <PromptHelper title="Lệnh AI Trích Xuất JSON" promptText={jsonPromptText} />
+                                <PromptHelper title={docType === 'twocol' ? '🏗️ Lệnh AI Vẽ HTML 2 Cột' : 'Lệnh AI Vẽ HTML Template'} promptText={docType === 'twocol' ? TWO_COL_HTML_PROMPT : htmlPromptText} />
+                                <PromptHelper title={docType === 'twocol' ? '📊 Lệnh AI Trích Xuất JSON 2 Cột' : 'Lệnh AI Trích Xuất JSON'} promptText={docType === 'twocol' ? TWO_COL_JSON_PROMPT : jsonPromptText} />
                             </>
                         ) : (
-                            <PromptHelper title="Hướng dẫn NotebookLM (HTML + JSON)" promptText={TEMPLATE_NOTEBOOKLM_PROMPT} />
+                            <PromptHelper title={docType === 'twocol' ? '📓 NotebookLM — Văn bản 2 Cột' : 'Hướng dẫn NotebookLM (HTML + JSON)'} promptText={docType === 'twocol' ? TWO_COL_NOTEBOOKLM_PROMPT : TEMPLATE_NOTEBOOKLM_PROMPT} />
                         )}
 
                         {/* HTML Template Input */}

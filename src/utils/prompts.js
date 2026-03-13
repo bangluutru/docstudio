@@ -642,3 +642,124 @@ Ví dụ:
 2. Copy JSON từ NotebookLM → dán vào ô "JSON Data"
 3. Chọn ngôn ngữ VN/EN/JP để xem bản dịch
 4. Xuất PDF hoặc DOCX`;
+
+
+// =====================================================================
+// Two-Column Document Prompts — Tab 4: Template Overlay
+// =====================================================================
+
+export const TWO_COL_HTML_PROMPT = `Chào bạn, tôi muốn nhờ bạn đọc hình ảnh tài liệu đính kèm và tái tạo giúp tôi toàn bộ hình thức đồ họa của tờ giấy thành một đoạn mã HTML kết hợp Tailwind CSS.
+
+⚠️ TÀI LIỆU NÀY CÓ BỐ CỤC 2 CỘT — Đây là yêu cầu then chốt.
+
+Yêu cầu dành cho Mã HTML:
+
+1. BỐ CỤC 2 CỘT BẮT BUỘC:
+   - Dùng CSS Grid: <div class="grid grid-cols-2 gap-4">
+   - Cột trái <div> chứa các mục thuộc nửa trái trang gốc.
+   - Cột phải <div> chứa các mục thuộc nửa phải trang gốc.
+   - Nội dung PHẢI giữ nguyên THỨ TỰ và VỊ TRÍ CHÍNH XÁC như bản gốc:
+     mục nào ở cột trái giữ ở trái, mục nào ở cột phải giữ ở phải.
+   - Header chung (tiêu đề sản phẩm, version) nằm TRÊN grid, chiếm full-width.
+
+2. TUYỆT ĐỐI KHÔNG gõ cứng (hardcode) chữ. Mọi văn bản (tiêu đề mục, nội dung, nhãn bảng, số thứ tự caption) ĐỀU PHẢI được thay thế bằng Biến Ngoặc Nhọn {{tên_biến}}.
+   - Tiêu đề mục: {{section_banned_title}}, {{section_operating_title}}...
+   - Nội dung danh sách: {{banned_item_1}}, {{op_step_1}}...
+   - Nhãn bảng: {{table1_col_name}}, {{table1_col_ingredient}}...
+   - Dữ liệu bảng: {{item_1_name}}, {{item_1_ingredient}}...
+   - Caption hình: {{figure_1_caption}}
+
+3. XỬ LÝ CÁC YẾU TỐ ĐẶC BIỆT:
+   - Khung viền (ví dụ khung đỏ quanh mục cấm): dùng class "border-2 border-red-600 p-3".
+   - Danh sách đánh số: dùng <ol class="list-decimal pl-4 space-y-1"> với <li>{{variable}}</li>.
+   - Bảng: dùng <table> với class border, mỗi ô là {{variable}}.
+   - Hình vẽ kỹ thuật: dùng placeholder <div class="border p-2 text-center my-2">{{figure_caption}}</div>.
+
+4. Chống Tràn Dòng & Xếp Chữ: BẮT BUỘC dùng class "break-words" hoặc "whitespace-pre-wrap", "text-[10px]" hoặc "text-xs", "leading-tight".
+
+5. KHÔNG FIX CỨNG CHIỀU CAO: Tuyệt đối không dùng h-32, h-64, min-h-[200px]. Để chiều cao tự co giãn. Dùng padding nhẹ (p-4) thay thế.
+
+6. Chỉ cần trả về nội dung bên trong cặp thẻ <div> bọc ngoài cùng. Div ngoài cùng phải có class: w-[210mm] min-h-[297mm] mx-auto bg-white p-6 font-sans text-[11px] leading-tight.`;
+
+
+export const TWO_COL_JSON_PROMPT = `Dựa trên bức ảnh tài liệu 2 cột này, và dựa vào danh sách các Biến Ngoặc Nhọn {{...}} mà bạn đã tạo cho tôi trong mẫu HTML, hãy giúp tôi trích xuất toàn bộ dữ liệu chữ số đang có trên giấy.
+
+Yêu cầu đối với JSON:
+1. Xuất ra một chuỗi JSON phẳng (KHÔNG bọc trong mảng Array []).
+2. Key của JSON phải trùng khớp chính xác 100% với tên các Biến Ngoặc Nhọn ở bản thiết kế HTML.
+3. Mỗi giá trị (Value) xin hãy dịch sang 3 ngôn ngữ và cung cấp dưới dạng Object với key vn, en, jp.
+
+LƯU Ý ĐẶC BIỆT CHO VĂN BẢN 2 CỘT:
+- Dịch ĐẦY ĐỦ tất cả các mục trong CẢ HAI CỘT (trái + phải).
+- Các danh sách đánh số (ví dụ: 13 bước Operating Procedure) → mỗi bước là 1 key riêng biệt.
+- Nội dung bảng → mỗi ô là 1 key riêng biệt.
+- KHÔNG bỏ sót bất kỳ mục nào.
+
+Ví dụ cấu trúc mong muốn:
+{
+  "product_title": { "vn": "Smart Sed (Ống chân không chiếu xạ V) cho Smart Rate", "en": "Smart Sed (Irradiated vacuum tube V) for Smart Rate", "jp": "Smart Sed（照射済み真空管V）Smart Rate用" },
+  "section_banned_title": { "vn": "【Cấm / Nghiêm cấm】", "en": "【Banned/Prohibited】", "jp": "【禁止・禁忌】" },
+  "banned_item_1": { "vn": "Chỉ sử dụng một lần.", "en": "Single-use-only.", "jp": "使い捨て。" },
+  "op_step_1": { "vn": "Đưa ống thu máu về nhiệt độ phòng...", "en": "Prepare the blood collection tube at room temperature...", "jp": "採血管を室温に..." }
+}`;
+
+
+export const TWO_COL_NOTEBOOKLM_PROMPT = `# HƯỚNG DẪN SỬ DỤNG NOTEBOOKLM ĐỂ TẠO HTML + JSON (VĂN BẢN 2 CỘT)
+
+## Bước 1 — Cài đặt NotebookLM
+1. Mở NotebookLM → tạo notebook mới
+2. Upload hình ảnh tài liệu 2 cột cần tái tạo
+3. Vào Settings → Goals → dán PERSONA bên dưới
+4. Chat lần 1: "Vẽ lại HTML template 2 cột" → nhận mã HTML
+5. Chat lần 2: "Trích xuất JSON data" → nhận dữ liệu JSON
+
+## Bước 2 — Dán Persona này vào Goals
+
+---
+
+# PERSONA: DocStudio Two-Column Template Builder
+
+Bạn là chuyên gia tái tạo tài liệu BỐ CỤC 2 CỘT thành HTML + JSON đa ngôn ngữ.
+Bạn có 2 nhiệm vụ, thực hiện theo lệnh của người dùng:
+
+## NHIỆM VỤ 1: VẼ HTML TEMPLATE 2 CỘT
+Khi được yêu cầu "Vẽ HTML" hoặc "Tạo template":
+- Bố cục 2 cột BẮT BUỘC dùng CSS Grid: <div class="grid grid-cols-2 gap-4">
+- Cột trái và cột phải giữ nguyên vị trí như bản gốc.
+- Header chung (tiêu đề, version) nằm TRÊN grid, full-width.
+- TUYỆT ĐỐI KHÔNG gõ cứng chữ. Mọi văn bản → Biến Ngoặc Nhọn: {{tên_biến}}
+- Khung viền (mục cấm) → border-2 border-red-600 p-3.
+- Danh sách đánh số → <ol class="list-decimal"> với <li>{{variable}}</li>.
+- Bảng → <table> với {{variable}} cho từng ô.
+- Hình vẽ → placeholder <div class="border p-2 text-center">{{figure_caption}}</div>.
+- Chống tràn: break-words, text-[10px] hoặc text-xs, leading-tight.
+- KHÔNG fix chiều cao. Dùng padding nhẹ thay thế.
+- Div ngoài cùng: w-[210mm] min-h-[297mm] mx-auto bg-white p-6 font-sans text-[11px] leading-tight.
+
+## NHIỆM VỤ 2: TRÍCH XUẤT JSON
+Khi được yêu cầu "Trích xuất JSON" hoặc "Tạo dữ liệu":
+- Key JSON trùng khớp 100% với tên Biến Ngoặc Nhọn {{...}} từ HTML.
+- Mỗi giá trị dịch 3 ngôn ngữ: { "vn": "...", "en": "...", "jp": "..." }
+- Xuất JSON phẳng (KHÔNG bọc mảng []).
+- Dịch ĐẦY ĐỦ tất cả các mục trong CẢ HAI CỘT (trái + phải).
+- Mỗi mục danh sách đánh số → 1 key riêng.
+- KHÔNG bỏ sót bất kỳ mục nào.
+
+Ví dụ:
+{
+  "product_title": { "vn": "Tên sản phẩm", "en": "Product Name", "jp": "製品名" },
+  "section_banned_title": { "vn": "【Cấm】", "en": "【Banned】", "jp": "【禁止】" },
+  "banned_item_1": { "vn": "Chỉ sử dụng 1 lần.", "en": "Single-use.", "jp": "使い捨て。" }
+}
+
+## ĐỊNH DẠNG ĐẦU RA
+- Nhiệm vụ 1: Chỉ trả về HTML, KHÔNG markdown wrapper.
+- Nhiệm vụ 2: Chỉ trả về JSON hợp lệ, KHÔNG giải thích.
+
+---
+
+## Bước 3 — Nhập vào DocStudio
+1. Copy HTML từ NotebookLM → dán vào ô "HTML Template" ở tab In Biểu Mẫu
+2. Copy JSON từ NotebookLM → dán vào ô "JSON Data"
+3. Chọn ngôn ngữ VN/EN/JP để xem bản dịch
+4. Xuất PDF hoặc DOCX`;
