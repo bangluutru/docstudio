@@ -15,7 +15,8 @@ import {
     ZoomIn,
     ZoomOut,
     FileDown,
-    Wand2,
+    ChevronDown,
+    ChevronRight,
 } from 'lucide-react';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType } from 'docx';
 import { saveAs } from 'file-saver';
@@ -199,7 +200,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     const [customFont, setCustomFont] = useState(null);
     const [promptSource, setPromptSource] = useState('gemini');
     const [docType, setDocType] = useState('single'); // 'single' | 'twocol'
-    const [smartPasteFeedback, setSmartPasteFeedback] = useState(''); // toast message
+    const [showJsonInput, setShowJsonInput] = useState(false);
 
     // Sync with global lang if it changes, but allow local override
     useEffect(() => {
@@ -355,69 +356,42 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     // PRINT ACTION & MANUAL EDIT
     // -----------------------------------------------------------------
     const handlePrint = () => {
-        window.print();
-    };
+        if (!printAreaRef.current) return;
+        // Collect all rendered page HTML
+        const pages = printAreaRef.current.querySelectorAll('.print-target');
+        if (pages.length === 0) return;
 
-    // -----------------------------------------------------------------
-    // Smart Paste: auto-split HTML + JSON from combined AI output
-    // -----------------------------------------------------------------
-    const smartSplitContent = (rawText) => {
-        if (!rawText || !rawText.trim()) return;
-        let text = rawText.trim();
-        // Remove markdown code fences
-        text = text.replace(/```html\s*/gi, '\n---HTML_SPLIT---\n').replace(/```json\s*/gi, '\n---JSON_SPLIT---\n').replace(/```/g, '\n---END_BLOCK---\n');
+        let pagesHtml = '';
+        pages.forEach((page, idx) => {
+            // Get the inner content wrapper
+            const wrapper = page.querySelector('.page-content-wrapper');
+            const content = wrapper ? wrapper.innerHTML : page.innerHTML;
+            pagesHtml += `<div style="width:210mm;min-height:297mm;padding:12mm;box-sizing:border-box;overflow:hidden;background:white;position:relative;${idx < pages.length - 1 ? 'page-break-after:always;' : ''}">
+                ${content}
+            </div>`;
+        });
 
-        let htmlPart = '';
-        let jsonPart = '';
-
-        // Strategy 1: If we have clear markers from stripping code fences
-        if (text.includes('---HTML_SPLIT---') || text.includes('---JSON_SPLIT---')) {
-            const blocks = text.split(/---(?:HTML_SPLIT|JSON_SPLIT|END_BLOCK)---/).map(b => b.trim()).filter(Boolean);
-            for (const block of blocks) {
-                if (block.match(/^\s*[{\[]/) && block.match(/[}\]]\s*$/)) {
-                    if (!jsonPart) jsonPart = block;
-                } else if (block.includes('<')) {
-                    if (!htmlPart) htmlPart = block;
-                }
-            }
-        }
-
-        // Strategy 2: Find JSON object { ... } and HTML by elimination
-        if (!jsonPart || !htmlPart) {
-            // Try to find a top-level JSON object
-            const jsonMatch = text.match(/(\{[\s\S]*\})/); 
-            if (jsonMatch) {
-                try {
-                    JSON.parse(jsonMatch[1]);
-                    jsonPart = jsonMatch[1];
-                    // Everything else that has HTML tags is HTML
-                    const remaining = text.replace(jsonMatch[1], '').trim();
-                    if (remaining.includes('<') && !htmlPart) {
-                        htmlPart = remaining.replace(/```\w*/g, '').replace(/```/g, '').trim();
-                    }
-                } catch (e) { /* not valid JSON, skip */ }
-            }
-        }
-
-        // Strategy 3: HTML detection by tag presence
-        if (!htmlPart && text.includes('<div') || text.includes('<table') || text.includes('<ol')) {
-            // Extract the HTML portion (everything from first < to matching structure)
-            const htmlMatch = text.match(/(<(?:div|table|section|header|ol|ul|h[1-6])[\s\S]*>)/i);
-            if (htmlMatch) htmlPart = htmlMatch[0];
-        }
-
-        if (htmlPart || jsonPart) {
-            if (htmlPart) setHtmlInput(htmlPart);
-            if (jsonPart) setJsonInput(jsonPart);
-            const parts = [];
-            if (htmlPart) parts.push('HTML');
-            if (jsonPart) parts.push('JSON');
-            setSmartPasteFeedback(`\u2705 T\u1ef1 \u0111\u1ed9ng t\u00e1ch ${parts.join(' + ')} th\u00e0nh c\u00f4ng!`);
-            setTimeout(() => setSmartPasteFeedback(''), 3000);
-        } else {
-            setSmartPasteFeedback('\u26a0\ufe0f Kh\u00f4ng nh\u1eadn di\u1ec7n \u0111\u01b0\u1ee3c HTML/JSON. H\u00e3y d\u00e1n ri\u00eang v\u00e0o t\u1eebng \u00f4.');
-            setTimeout(() => setSmartPasteFeedback(''), 4000);
-        }
+        const printWindow = window.open('', '_blank', 'width=800,height=1000');
+        if (!printWindow) { alert('Popup bị chặn. Vui lòng cho phép popup để in PDF.'); return; }
+        printWindow.document.write(`<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<title>DocStudio - Print</title>
+<script src="https://cdn.tailwindcss.com"><\/script>
+<style>
+  @page { size: A4; margin: 0; }
+  body { margin: 0; padding: 0; background: white; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  ${customFont ? `* { font-family: ${customFont} !important; }` : ''}
+</style>
+</head><body>
+${pagesHtml}
+<script>
+  // Wait for Tailwind to process, then print
+  setTimeout(() => { window.print(); window.close(); }, 800);
+<\/script>
+</body></html>`);
+        printWindow.document.close();
     };
 
     // --- DOCX Export (improved walker) ---
@@ -732,36 +706,12 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                             <PromptHelper title={docType === 'twocol' ? '📓 NotebookLM — Văn bản 2 Cột' : 'Hướng dẫn NotebookLM (HTML + JSON)'} promptText={docType === 'twocol' ? TWO_COL_NOTEBOOKLM_PROMPT : TEMPLATE_NOTEBOOKLM_PROMPT} />
                         )}
 
-                        {/* Smart Paste + HTML/JSON Inputs */}
+                        {/* HTML Input */}
                         <div className="p-4 space-y-3">
-                            {/* Smart Paste */}
-                            <div className="p-3 bg-gradient-to-r from-amber-50 to-fuchsia-50 border border-amber-200 rounded-xl space-y-2">
-                                <label className="text-xs font-bold text-amber-700 flex items-center gap-1.5 uppercase tracking-wide">
-                                    <Wand2 size={13} /> Smart Paste (Dán tất cả vào đây)
-                                </label>
-                                <textarea
-                                    className="w-full h-20 p-2.5 bg-white border border-amber-200 text-slate-700 font-mono text-[10px] leading-relaxed rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
-                                    placeholder="Dán toàn bộ output từ NotebookLM/Gemini vào đây (gồm cả HTML + JSON) — hệ thống sẽ tự tách..."
-                                    onPaste={(e) => {
-                                        setTimeout(() => {
-                                            const val = e.target.value;
-                                            smartSplitContent(val);
-                                            e.target.value = '';
-                                        }, 50);
-                                    }}
-                                    onChange={() => {}}
-                                />
-                                {smartPasteFeedback && (
-                                    <div className={`text-[10px] font-bold px-2 py-1 rounded ${smartPasteFeedback.startsWith('\u2705') ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                        {smartPasteFeedback}
-                                    </div>
-                                )}
-                            </div>
-
                             {/* HTML Template Input */}
                             <div className="flex items-center justify-between">
                                 <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5 uppercase tracking-wide">
-                                    <Code size={13} /> HTML Template
+                                    <Code size={13} /> Dán HTML vào đây
                                 </label>
                                 {/* Rescue Tools */}
                                 <div className="flex items-center gap-1">
@@ -776,27 +726,38 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                                 </div>
                             </div>
                             <textarea
-                                className="w-full h-32 p-3 bg-[#1E1E1E] text-blue-300 font-mono text-[10px] leading-relaxed rounded-xl focus:outline-none focus:ring-2 focus:ring-fuchsia-500 resize-none shadow-inner"
+                                className="w-full h-52 p-3 bg-[#1E1E1E] text-blue-300 font-mono text-[10px] leading-relaxed rounded-xl focus:outline-none focus:ring-2 focus:ring-fuchsia-500 resize-none shadow-inner"
                                 value={htmlInput}
                                 onChange={(e) => setHtmlInput(e.target.value)}
                                 spellCheck="false"
-                                placeholder="Dán mã HTML/Tailwind do Gemini gen vào đây..."
+                                placeholder="Dán HTML từ Gemini/NotebookLM vào đây. Hệ thống sẽ render trực tiếp..."
                             />
 
-                            {/* JSON Data Input */}
-                            <div className="flex items-center justify-between">
-                                <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5 uppercase tracking-wide">
-                                    <FileText size={13} /> Dữ Liệu JSON
-                                </label>
-                                {jsonError && <span className="text-[9px] text-red-500 font-bold bg-red-50 px-1.5 py-0.5 rounded truncate max-w-[140px]">{jsonError}</span>}
-                            </div>
-                            <textarea
-                                className={`w-full h-28 p-3 bg-[#1E1E1E] text-emerald-300 font-mono text-[10px] leading-relaxed rounded-xl focus:outline-none focus:ring-2 focus:ring-fuchsia-500 resize-none shadow-inner ${jsonError ? 'ring-2 ring-red-500' : ''}`}
-                                value={jsonInput}
-                                onChange={(e) => setJsonInput(e.target.value)}
-                                spellCheck="false"
-                                placeholder='Dán JSON từ Gemini với định dạng _vn, _en, _jp...'
-                            />
+                            {/* Collapsible JSON Input (for multilingual mode) */}
+                            <button
+                                onClick={() => setShowJsonInput(!showJsonInput)}
+                                className="flex items-center gap-1.5 text-[10px] text-slate-400 hover:text-slate-600 font-bold uppercase tracking-wide transition-colors"
+                            >
+                                {showJsonInput ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                JSON (đa ngôn ngữ) — tuỳ chọn
+                            </button>
+                            {showJsonInput && (
+                                <>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-bold text-slate-600 flex items-center gap-1.5 uppercase tracking-wide">
+                                            <FileText size={13} /> Dữ Liệu JSON
+                                        </label>
+                                        {jsonError && <span className="text-[9px] text-red-500 font-bold bg-red-50 px-1.5 py-0.5 rounded truncate max-w-[140px]">{jsonError}</span>}
+                                    </div>
+                                    <textarea
+                                        className={`w-full h-28 p-3 bg-[#1E1E1E] text-emerald-300 font-mono text-[10px] leading-relaxed rounded-xl focus:outline-none focus:ring-2 focus:ring-fuchsia-500 resize-none shadow-inner ${jsonError ? 'ring-2 ring-red-500' : ''}`}
+                                        value={jsonInput}
+                                        onChange={(e) => setJsonInput(e.target.value)}
+                                        spellCheck="false"
+                                        placeholder='Dán JSON với định dạng { "vn": "...", "en": "...", "jp": "..." }'
+                                    />
+                                </>
+                            )}
 
                             {/* Zoom control */}
                             <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200">
