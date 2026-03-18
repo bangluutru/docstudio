@@ -308,17 +308,17 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     // -----------------------------------------------------------------
     // AUTO-PAGINATION: measure rendered content and split into A4 pages
     // -----------------------------------------------------------------
-    const A4_CONTENT_HEIGHT_PX = 1032; // ~273mm content area (297mm - 12mm*2 padding) at 96dpi
+    const A4_CONTENT_HEIGHT_PX = 1032; // ~273mm content area (297mm - 12mm top - 15mm bottom) at 96dpi
 
     useEffect(() => {
         // Only auto-paginate single-page content that might overflow
-        if (templatePages.length > 1 || !templatePages[0] || !measureRef.current) {
+        if (templatePages.length > 1 || !templatePages[0]) {
             setAutoPaginatedPages(null);
             return;
         }
 
-        // Use requestAnimationFrame to measure after DOM render
-        const rafId = requestAnimationFrame(() => {
+        // Use setTimeout to wait for Tailwind CDN to process classes
+        const timerId = setTimeout(() => {
             const container = measureRef.current;
             if (!container) return;
 
@@ -328,34 +328,47 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                 return;
             }
 
-            // Split by block-level children
-            const children = container.children;
-            if (children.length === 0) {
+            // Recursively find splittable block-level children
+            // AI often wraps everything in a single div — we need to unwrap
+            const findSplittableChildren = (el) => {
+                const kids = [...el.children];
+                // If only 1 child and it's a div wrapper, go deeper
+                if (kids.length === 1 && kids[0].tagName === 'DIV' && kids[0].children.length > 1) {
+                    return findSplittableChildren(kids[0]);
+                }
+                return kids.length > 0 ? kids : [...el.childNodes].filter(n => n.nodeType === Node.ELEMENT_NODE);
+            };
+
+            const children = findSplittableChildren(container);
+            if (children.length <= 1) {
                 setAutoPaginatedPages(null);
                 return;
             }
 
             const pages = [];
-            let currentPageElements = [];
+            let currentPageHtml = [];
             let currentHeight = 0;
 
             for (const child of children) {
-                const childHeight = child.offsetHeight + parseInt(getComputedStyle(child).marginTop || 0) + parseInt(getComputedStyle(child).marginBottom || 0);
+                const style = getComputedStyle(child);
+                const marginTop = parseInt(style.marginTop) || 0;
+                const marginBottom = parseInt(style.marginBottom) || 0;
+                const childHeight = child.offsetHeight + marginTop + marginBottom;
 
-                if (currentHeight + childHeight > A4_CONTENT_HEIGHT_PX && currentPageElements.length > 0) {
+                if (currentHeight + childHeight > A4_CONTENT_HEIGHT_PX && currentPageHtml.length > 0) {
                     // Start new page
-                    pages.push(currentPageElements.map(el => el.outerHTML).join('\n'));
-                    currentPageElements = [child];
+                    pages.push(currentPageHtml.join('\n'));
+                    currentPageHtml = [child.outerHTML];
                     currentHeight = childHeight;
                 } else {
-                    currentPageElements.push(child);
+                    currentPageHtml.push(child.outerHTML);
                     currentHeight += childHeight;
                 }
             }
 
             // Push remaining
-            if (currentPageElements.length > 0) {
-                pages.push(currentPageElements.map(el => el.outerHTML).join('\n'));
+            if (currentPageHtml.length > 0) {
+                pages.push(currentPageHtml.join('\n'));
             }
 
             if (pages.length > 1) {
@@ -363,9 +376,9 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
             } else {
                 setAutoPaginatedPages(null);
             }
-        });
+        }, 300); // Wait for Tailwind CDN to process
 
-        return () => cancelAnimationFrame(rafId);
+        return () => clearTimeout(timerId);
     }, [templatePages]);
 
     // -----------------------------------------------------------------
@@ -804,13 +817,14 @@ ${pagesHtml}
             {templatePages.length === 1 && templatePages[0] && (
                 <div
                     ref={measureRef}
-                    className="fixed top-0 left-[-9999px] pointer-events-none"
                     style={{
-                        width: 'calc(210mm - 24mm)', /* A4 width minus padding */
-                        padding: 0,
-                        visibility: 'hidden',
                         position: 'absolute',
-                        zIndex: -1,
+                        width: 'calc(210mm - 24mm)', /* A4 width minus left+right padding */
+                        clip: 'rect(0, 0, 0, 0)',
+                        clipPath: 'inset(50%)',
+                        overflow: 'hidden',
+                        whiteSpace: 'normal',
+                        height: 'auto',
                     }}
                     dangerouslySetInnerHTML={{ __html: templatePages[0] }}
                 />
