@@ -617,16 +617,41 @@ Yêu cầu cho Mã HTML:
    - Chiều rộng cột tự động co giãn (flexible width), KHÔNG dùng % cứng.
    - Khung viền đặc biệt (khung đỏ mục cấm): dùng class "border-2 border-red-600 p-3".
    - Danh sách đánh số: <ol class="list-decimal pl-4 space-y-1"> với <li>{{variable}}</li>.
-   - Bảng: <table> với class border, mỗi ô là {{variable}}.
-   - Hình vẽ: placeholder <div class="border p-2 text-center my-2">{{figure_caption}}</div>.
+   - Hình vẽ: placeholder <div class="border p-2 text-center my-1">{{figure_caption}}</div>.
 
-3. Chống Tràn Dòng: BẮT BUỘC dùng class "break-words", "text-[10px]" hoặc "text-xs", "leading-tight".
+3. 📊 BẢNG — BORDER BẮT BUỘC RÕ RÀNG:
+   - Mọi bảng PHẢI có border: <table class="w-full border-collapse border border-gray-400 text-xs">
+   - Mỗi ô PHẢI có border: <td class="border border-gray-400 p-1"> hoặc <th class="border border-gray-400 p-1 font-bold bg-gray-50">
+   - TUYỆT ĐỐI KHÔNG dùng border-collapse mà THIẾU border trên td/th.
+   - Nếu bảng gốc có header row: dùng <thead> với bg-gray-100.
 
-4. KHÔNG FIX CỨNG CHIỀU CAO: Không dùng h-32, h-64, min-h-[200px]. Để chiều cao tự co giãn.
+4. 🔀 SƠ ĐỒ QUY TRÌNH (FLOWCHART):
+   - Nếu trang gốc có sơ đồ quy trình/flowchart, tái tạo bằng HTML+CSS:
+     - Mỗi bước: <div class="border border-gray-600 p-2 text-center text-xs">{{step_name}}</div>
+     - Mũi tên nối: <div class="flex justify-center my-1"><span class="text-gray-500 text-lg">↓</span></div>
+     - Bố cục dọc: dùng flex flex-col items-center
+     - Nhánh ngang: dùng flex flex-row items-center gap-2 với mũi tên →
+   - Giữ nguyên thứ tự các bước, phân nhánh, và text annotation như bản gốc.
 
-5. ⛔ KHÔNG bao bọc bằng div có w-[210mm] hoặc min-h-[297mm]. Hệ thống sẽ tự đặt khung A4. Chỉ trả về NỘI DUNG bên trong.
+5. 🔴 CON DẤU / STAMP:
+   - Nếu trang gốc có con dấu (stamp/seal), tái tạo bằng SVG inline:
+     - Vị trí: position:absolute, đặt đúng chỗ con dấu xuất hiện (ví dụ: bottom-right)
+     - Style: opacity:0.4, transform:rotate(-15deg)
+     - Nội dung: SVG circle + text, màu đỏ (#DC2626)
+     - Ví dụ: <div class="absolute bottom-8 right-8" style="opacity:0.4;transform:rotate(-15deg)"><svg width="80" height="80" viewBox="0 0 80 80"><circle cx="40" cy="40" r="36" fill="none" stroke="#DC2626" stroke-width="2"/><text x="40" y="44" text-anchor="middle" fill="#DC2626" font-size="10" font-weight="bold">{{stamp_text}}</text></svg></div>
 
-6. 📄 Nếu tài liệu có NHIỀU TRANG: Đặt dấu phân cách <!-- PAGE BREAK --> giữa mỗi trang. Hệ thống sẽ tự tách thành các trang A4 riêng biệt.
+6. 📐 SPACING NHỎ GỌN — QUAN TRỌNG:
+   - Dùng spacing NHỎ: p-1, p-2, p-3, mb-1, mb-2, gap-1, gap-2, space-y-1.
+   - ⛔ TUYỆT ĐỐI KHÔNG dùng p-6, p-8, p-10, mb-6, mb-8, gap-6 trở lên. Nội dung phải SÁT NHAU, không giãn cách.
+   - Leading: dùng leading-tight hoặc leading-snug, KHÔNG dùng leading-relaxed.
+
+7. Chống Tràn Dòng: BẮT BUỘC dùng class "break-words", "text-[10px]" hoặc "text-xs", "leading-tight".
+
+8. KHÔNG FIX CỨNG CHIỀU CAO: Không dùng h-32, h-64, min-h-[200px]. Để chiều cao tự co giãn.
+
+9. ⛔ KHÔNG bao bọc bằng div có w-[210mm] hoặc min-h-[297mm]. Hệ thống sẽ tự đặt khung A4. Chỉ trả về NỘI DUNG bên trong.
+
+10. 📄 Nếu tài liệu có NHIỀU TRANG: Đặt dấu phân cách <!-- PAGE BREAK --> giữa mỗi trang. Hệ thống sẽ tự tách thành các trang A4 riêng biệt.
 
 ═══════════════════════════════════════════════
 PHẦN 2: TRÍCH XUẤT JSON ĐA NGÔN NGỮ
@@ -695,8 +720,26 @@ Khi được yêu cầu "Vẽ HTML" hoặc "Tạo template":
 - Vẽ lại CHÍNH XÁC khung xương y hệt bản gốc bằng HTML + Tailwind CSS.
 - Khung viền đặc biệt (mục cấm) → border-2 border-red-600 p-3.
 - Danh sách đánh số → <ol class="list-decimal"> với <li>{{variable}}</li>.
-- Bảng → <table> với {{variable}} cho từng ô.
 - Hình vẽ → placeholder <div class="border p-2 text-center">{{figure_caption}}</div>.
+
+📊 BẢNG — BORDER BẮT BUỘC:
+- Mọi bảng: <table class="w-full border-collapse border border-gray-400 text-xs">
+- Mỗi ô: <td class="border border-gray-400 p-1"> hoặc <th class="border border-gray-400 p-1 font-bold bg-gray-50">
+- KHÔNG dùng border-collapse mà THIẾU border trên td/th.
+
+🔀 SƠ ĐỒ QUY TRÌNH:
+- Mỗi bước → <div class="border border-gray-600 p-2 text-center text-xs">{{step}}</div>
+- Mũi tên → <div class="flex justify-center my-1"><span class="text-gray-500 text-lg">↓</span></div>
+- Bố cục dọc: flex flex-col items-center, ngang: flex flex-row gap-2 với →
+
+🔴 CON DẤU / STAMP:
+- Tái tạo bằng SVG inline: position:absolute, opacity:0.4, rotate(-15deg), màu đỏ #DC2626.
+
+📐 SPACING NHỎ GỌN:
+- Dùng: p-1, p-2, p-3, mb-1, mb-2, gap-1, gap-2, space-y-1.
+- ⛔ KHÔNG dùng: p-6, p-8, p-10, mb-6, mb-8, gap-6 trở lên.
+- Leading: leading-tight hoặc leading-snug, KHÔNG dùng leading-relaxed.
+
 - Chống tràn: break-words, text-[10px] hoặc text-xs, leading-tight.
 - KHÔNG fix chiều cao. Dùng padding nhẹ thay thế.
 - ⛔ KHÔNG bao bọc bằng div có w-[210mm] hoặc min-h-[297mm]. Hệ thống tự đặt khung A4.

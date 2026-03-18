@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
     Printer,
     FileText,
@@ -74,7 +74,7 @@ const flattenAndExtractLangFields = (data) => {
 };
 
 // =====================================================================
-// Sanitize AI HTML: strip outer wrapper div that causes double w-[210mm]
+// Sanitize AI HTML: strip outer wrapper + auto-compact spacing
 // =====================================================================
 const sanitizeHtml = (html) => {
     if (!html) return '';
@@ -88,6 +88,28 @@ const sanitizeHtml = (html) => {
     if (outerMatch) {
         clean = outerMatch[1].trim();
     }
+
+    // Auto-compact: reduce large spacing to tighter values
+    // Map: p-8→p-3, p-10→p-3, p-12→p-4, mb-8→mb-2, mb-6→mb-2, gap-6→gap-2, py-8→py-2, etc.
+    const spacingScale = ['0','0.5','1','1.5','2','2.5','3','3.5','4','5','6','7','8','9','10','11','12','14','16','20','24','28','32','36','40','44','48','52','56','60','64','72','80','96'];
+    clean = clean.replace(/\b([mp][tbyxlr]?-|gap-)(\d+|1\.5|2\.5|3\.5)(?![a-zA-Z0-9_\[.-])/g, (match, prefix, val) => {
+        const idx = spacingScale.indexOf(val);
+        // Compact values >= index 8 (which is '5') down by ~half
+        if (idx >= 8) {
+            const newIdx = Math.max(4, Math.floor(idx * 0.5));
+            return prefix + spacingScale[newIdx];
+        }
+        return match;
+    });
+    // Also compact arbitrary px spacing: [40px]→[12px], [60px]→[16px], etc.
+    clean = clean.replace(/\b([mp][tbyxlr]?-|gap-)\[(\d+)px\]/g, (match, prefix, val) => {
+        const px = parseInt(val, 10);
+        if (px > 24) return `${prefix}[${Math.max(8, Math.round(px * 0.35))}px]`;
+        return match;
+    });
+    // Strip shadow classes (cosmetic, causes visual artifacts in print)
+    clean = clean.replace(/\bshadow(-[a-zA-Z0-9]+)?\b/g, '').replace(/\s{2,}/g, ' ');
+
     return clean;
 };
 
@@ -184,6 +206,8 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     const [promptSource, setPromptSource] = useState('gemini');
     const [showJsonInput, setShowJsonInput] = useState(false);
     const [smartPasteMsg, setSmartPasteMsg] = useState('');
+    const [autoPaginatedPages, setAutoPaginatedPages] = useState(null);
+    const measureRef = useRef(null);
 
     // Sync with global lang if it changes, but allow local override
     useEffect(() => {
@@ -272,10 +296,77 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     // -----------------------------------------------------------------
     // RENDER: Interpolate HTML
     // -----------------------------------------------------------------
-    // Returns ARRAY of page HTML strings
-    const finalPages = useMemo(() => {
-        return interpolateHTML(htmlInput, parsedData, currentLang);
-    }, [htmlInput, parsedData, currentLang]);
+    // Interpolated pages from HTML template
+    const templatePages = useMemo(
+        () => interpolateHTML(htmlInput, parsedData, currentLang),
+        [htmlInput, parsedData, currentLang]
+    );
+
+    // The final pages to display — auto-paginated if available, otherwise template pages
+    const finalPages = autoPaginatedPages || templatePages;
+
+    // -----------------------------------------------------------------
+    // AUTO-PAGINATION: measure rendered content and split into A4 pages
+    // -----------------------------------------------------------------
+    const A4_CONTENT_HEIGHT_PX = 1032; // ~273mm content area (297mm - 12mm*2 padding) at 96dpi
+
+    useEffect(() => {
+        // Only auto-paginate single-page content that might overflow
+        if (templatePages.length > 1 || !templatePages[0] || !measureRef.current) {
+            setAutoPaginatedPages(null);
+            return;
+        }
+
+        // Use requestAnimationFrame to measure after DOM render
+        const rafId = requestAnimationFrame(() => {
+            const container = measureRef.current;
+            if (!container) return;
+
+            const totalHeight = container.scrollHeight;
+            if (totalHeight <= A4_CONTENT_HEIGHT_PX) {
+                setAutoPaginatedPages(null); // fits in one page
+                return;
+            }
+
+            // Split by block-level children
+            const children = container.children;
+            if (children.length === 0) {
+                setAutoPaginatedPages(null);
+                return;
+            }
+
+            const pages = [];
+            let currentPageElements = [];
+            let currentHeight = 0;
+
+            for (const child of children) {
+                const childHeight = child.offsetHeight + parseInt(getComputedStyle(child).marginTop || 0) + parseInt(getComputedStyle(child).marginBottom || 0);
+
+                if (currentHeight + childHeight > A4_CONTENT_HEIGHT_PX && currentPageElements.length > 0) {
+                    // Start new page
+                    pages.push(currentPageElements.map(el => el.outerHTML).join('\n'));
+                    currentPageElements = [child];
+                    currentHeight = childHeight;
+                } else {
+                    currentPageElements.push(child);
+                    currentHeight += childHeight;
+                }
+            }
+
+            // Push remaining
+            if (currentPageElements.length > 0) {
+                pages.push(currentPageElements.map(el => el.outerHTML).join('\n'));
+            }
+
+            if (pages.length > 1) {
+                setAutoPaginatedPages(pages);
+            } else {
+                setAutoPaginatedPages(null);
+            }
+        });
+
+        return () => cancelAnimationFrame(rafId);
+    }, [templatePages]);
 
     // -----------------------------------------------------------------
     // HTML RESCUE TOOLS
@@ -411,7 +502,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
             // Get the inner content wrapper
             const wrapper = page.querySelector('.page-content-wrapper');
             const content = wrapper ? wrapper.innerHTML : page.innerHTML;
-            pagesHtml += `<div style="width:210mm;min-height:297mm;padding:12mm;box-sizing:border-box;overflow:hidden;background:white;position:relative;${idx < pages.length - 1 ? 'page-break-after:always;' : ''}">
+            pagesHtml += `<div style="width:210mm;min-height:297mm;padding:12mm 12mm 15mm 12mm;box-sizing:border-box;overflow:hidden;background:white;position:relative;${idx < pages.length - 1 ? 'page-break-after:always;' : ''}">
                 ${content}
             </div>`;
         });
@@ -709,6 +800,22 @@ ${pagesHtml}
 
     return (
         <>
+            {/* Hidden measuring container for auto-pagination */}
+            {templatePages.length === 1 && templatePages[0] && (
+                <div
+                    ref={measureRef}
+                    className="fixed top-0 left-[-9999px] pointer-events-none"
+                    style={{
+                        width: 'calc(210mm - 24mm)', /* A4 width minus padding */
+                        padding: 0,
+                        visibility: 'hidden',
+                        position: 'absolute',
+                        zIndex: -1,
+                    }}
+                    dangerouslySetInnerHTML={{ __html: templatePages[0] }}
+                />
+            )}
+
             {/* Print CSS */}
             <style dangerouslySetInnerHTML={{
                 __html: `
@@ -717,14 +824,20 @@ ${pagesHtml}
           box-sizing: border-box !important;
           max-width: 100% !important;
         }
-        .page-content-wrapper > div {
+        /* Only strip sizing on the DIRECT outer AI wrapper — preserve table/content borders */
+        .page-content-wrapper > div:first-child:last-child {
           width: 100% !important;
           max-width: 100% !important;
           margin: 0 !important;
           padding: 0 !important;
-          border: none !important;
           box-shadow: none !important;
           min-height: auto !important;
+        }
+        /* Ensure table borders always visible */
+        .page-content-wrapper table,
+        .page-content-wrapper td,
+        .page-content-wrapper th {
+          border-color: inherit !important;
         }
         @media print {
           @page { size: A4; margin: 0; }
@@ -922,7 +1035,7 @@ ${pagesHtml}
                                 style={{
                                     width: '210mm',
                                     minHeight: isHeightTrimmed ? 'auto' : '297mm',
-                                    padding: '12mm',
+                                    padding: '12mm 12mm 15mm 12mm',
                                     boxSizing: 'border-box',
                                     overflow: 'hidden',
                                     ...(customFont ? { '--custom-font': customFont, fontFamily: customFont } : {}),
