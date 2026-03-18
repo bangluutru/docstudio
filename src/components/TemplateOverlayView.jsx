@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import DocToolbar from './DocToolbar';
-import { TEMPLATE_NOTEBOOKLM_PROMPT, TWO_COL_HTML_PROMPT, TWO_COL_JSON_PROMPT, TWO_COL_NOTEBOOKLM_PROMPT } from '../utils/prompts';
+import { UNIFIED_TEMPLATE_GEMINI_PROMPT, UNIFIED_TEMPLATE_NOTEBOOKLM_PROMPT } from '../utils/prompts';
 
 // =====================================================================
 // Helper: Deep flatten JSON and group language keys
@@ -123,23 +123,7 @@ const interpolateHTML = (htmlTemplate, parsedData, currentLang) => {
     return pages.length > 0 ? pages.map(interpolateSingle) : [interpolateSingle(sanitized)];
 };
 
-const htmlPromptText = `Chào bạn, tôi muốn nhờ bạn đọc hình ảnh phiếu kết quả đính kèm và tái tạo giúp tôi toàn bộ hình thức đồ họa của tờ giấy thành một đoạn mã HTML kết hợp Tailwind CSS.
 
-Yêu cầu dành cho Mã HTML:
-1. Vẽ lại khung xương (tables, borders, layouts) y hệt ảnh gốc bằng Tailwind CSS. Hãy để độ rộng các cột tự động co giãn mềm dẻo theo lượng text bên trong (flexible width), KHÔNG DÙNG phần trăm cứng.
-2. Tuyệt đối không gõ cứng (hardcode) chữ của bất kỳ ngôn ngữ nào vào HTML. Mọi văn bản ĐỀU PHẢI được thay thế bằng Biến Ngoặc Nhọn (Ví dụ: {{label_so_lo}}, {{so_lo}}).
-3. Chống Tràn Dòng: BẮT BUỘC dùng class "break-words", "text-[10px]" hoặc "text-xs", "leading-tight".
-4. KHÔNG FIX CỨNG CHIỀU CAO: Không dùng h-32, h-64, min-h-[200px]. Để chiều cao tự co giãn.
-5. KHÔNG bao bọc bằng div có w-[210mm] hoặc min-h-[297mm]. Hệ thống sẽ tự đặt khung A4. Chỉ trả về NỘI DUNG bên trong.
-6. Nếu tài liệu có NHIỀU TRANG: Đặt dấu phân cách <!-- PAGE BREAK --> giữa mỗi trang. Hệ thống sẽ tự động tách thành các trang A4 riêng biệt.`;
-
-const jsonPromptText = `Dựa trên bức ảnh phiếu kết quả, và dựa vào danh sách các Biến Ngoặc Nhọn {{...}} trong mẫu HTML, hãy trích xuất toàn bộ dữ liệu.
-
-Yêu cầu đối với JSON:
-1. Xuất ra một chuỗi JSON phẳng. (KHÔNG bọc trong mảng Array []).
-2. Key của JSON phải trùng khớp chính xác 100% với tên các Biến Ngoặc Nhọn.
-3. Mỗi giá trị dịch sang 3 ngôn ngữ: { "vn": "...", "en": "...", "jp": "..." }
-4. Nếu tài liệu có NHIỀU TRANG: Gom TẤT CẢ dữ liệu của mọi trang vào 1 JSON duy nhất. Dùng prefix để phân biệt trang (ví dụ: page1_title, page2_title).`;
 
 const PromptHelper = ({ title, promptText }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -198,7 +182,6 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     const [zoomLevel, setZoomLevel] = useState(100);
     const [customFont, setCustomFont] = useState(null);
     const [promptSource, setPromptSource] = useState('gemini');
-    const [docType, setDocType] = useState('single'); // 'single' | 'twocol'
     const [showJsonInput, setShowJsonInput] = useState(false);
     const [smartPasteMsg, setSmartPasteMsg] = useState('');
 
@@ -360,22 +343,35 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
         if (!pasted || !pasted.trim()) return;
 
         const text = pasted.trim();
-        // Quick check: does the pasted content contain BOTH HTML tags and a JSON object?
+
+        // Strategy 1: Explicit ---JSON_DATA--- marker (from unified Gemini prompt)
+        const markerIdx = text.indexOf('---JSON_DATA---');
+        if (markerIdx >= 0) {
+            e.preventDefault();
+            const htmlPart = text.substring(0, markerIdx).trim();
+            const jsonPart = text.substring(markerIdx + '---JSON_DATA---'.length).trim();
+            if (htmlPart) setHtmlInput(htmlPart);
+            if (jsonPart) {
+                setJsonInput(jsonPart);
+                setShowJsonInput(true);
+            }
+            setSmartPasteMsg('\u2705 T\u1ef1 \u0111\u1ed9ng t\u00e1ch HTML + JSON th\u00e0nh c\u00f4ng!');
+            setTimeout(() => setSmartPasteMsg(''), 3000);
+            return;
+        }
+
+        // Strategy 2: Auto-detect HTML + JSON mixed (legacy fallback)
         const hasHtmlTags = /<(?:div|table|section|h[1-6]|ol|ul|p|span)[\s>]/i.test(text);
         const hasJsonBlock = /\{[\s\S]*"vn"\s*:/i.test(text);
 
         if (hasHtmlTags && hasJsonBlock) {
-            e.preventDefault(); // intercept paste
+            e.preventDefault();
 
-            // Find the boundary: last occurrence of a top-level JSON object
-            // Strategy: find the last '{' that starts a valid JSON block going to the end
             let jsonStart = -1;
-            // Search backwards for a line that starts with { (top-level JSON)
             const lines = text.split('\n');
             for (let i = lines.length - 1; i >= 0; i--) {
                 const trimmed = lines[i].trim();
                 if (trimmed === '{' || trimmed.startsWith('{')) {
-                    // Check if from this line to the end forms valid JSON
                     const candidate = lines.slice(i).join('\n').trim();
                     try {
                         const parsed = JSON.parse(candidate);
@@ -392,6 +388,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                 const jsonPart = lines.slice(jsonStart).join('\n').trim();
                 setHtmlInput(htmlPart);
                 setJsonInput(jsonPart);
+                setShowJsonInput(true);
                 setSmartPasteMsg('\u2705 T\u1ef1 \u0111\u1ed9ng t\u00e1ch HTML + JSON th\u00e0nh c\u00f4ng!');
                 setTimeout(() => setSmartPasteMsg(''), 3000);
                 return;
@@ -776,7 +773,7 @@ ${pagesHtml}
                             <h1 className="text-xl font-black tracking-tight uppercase italic">DocStudio</h1>
                         </div>
                         <p className="text-[10px] text-fuchsia-200 font-bold uppercase tracking-widest mt-0.5">
-                            Dynamic HTML Builder
+                            Universal Document Builder
                         </p>
                     </div>
 
@@ -799,30 +796,11 @@ ${pagesHtml}
                             </button>
                         </div>
 
-                        {/* Document Type Toggle */}
-                        <div className="flex gap-1 p-1 mx-4 mt-2 bg-slate-100 rounded-xl">
-                            <button
-                                onClick={() => setDocType('single')}
-                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${docType === 'single' ? 'bg-white text-fuchsia-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                📄 Biểu mẫu đơn
-                            </button>
-                            <button
-                                onClick={() => setDocType('twocol')}
-                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${docType === 'twocol' ? 'bg-white text-fuchsia-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                            >
-                                📰 Văn bản 2 cột
-                            </button>
-                        </div>
-
                         {/* Prompt Helpers */}
                         {promptSource === 'gemini' ? (
-                            <>
-                                <PromptHelper title={docType === 'twocol' ? '🏗️ Lệnh AI Vẽ HTML 2 Cột' : 'Lệnh AI Vẽ HTML Template'} promptText={docType === 'twocol' ? TWO_COL_HTML_PROMPT : htmlPromptText} />
-                                <PromptHelper title={docType === 'twocol' ? '📊 Lệnh AI Trích Xuất JSON 2 Cột' : 'Lệnh AI Trích Xuất JSON'} promptText={docType === 'twocol' ? TWO_COL_JSON_PROMPT : jsonPromptText} />
-                            </>
+                            <PromptHelper title='📐 Lệnh AI: Vẽ HTML + Trích Xuất JSON' promptText={UNIFIED_TEMPLATE_GEMINI_PROMPT} />
                         ) : (
-                            <PromptHelper title={docType === 'twocol' ? '📓 NotebookLM — Văn bản 2 Cột' : 'Hướng dẫn NotebookLM (HTML + JSON)'} promptText={docType === 'twocol' ? TWO_COL_NOTEBOOKLM_PROMPT : TEMPLATE_NOTEBOOKLM_PROMPT} />
+                            <PromptHelper title='📓 Hướng dẫn NotebookLM' promptText={UNIFIED_TEMPLATE_NOTEBOOKLM_PROMPT} />
                         )}
 
                         {/* HTML Input */}
