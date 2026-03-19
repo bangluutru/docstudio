@@ -271,38 +271,59 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
 
     const [parsedData, setParsedData] = useState({});
     const [appendMode, setAppendMode] = useState(false);
+    const [pages, setPages] = useState([]); // [{html, json}, ...] accumulated pages
     const [jsonError, setJsonError] = useState('');
 
     // Print ref
     const printAreaRef = useRef(null);
 
     // -----------------------------------------------------------------
+    // EFFECTIVE HTML/JSON: combined from pages array OR textarea
+    // -----------------------------------------------------------------
+    const effectiveHtml = useMemo(() => {
+        if (pages.length > 0) {
+            return pages.map(p => p.html).join('\n<!-- PAGE BREAK -->\n');
+        }
+        return htmlInput;
+    }, [pages, htmlInput]);
+
+    const effectiveJson = useMemo(() => {
+        if (pages.length > 0) {
+            try {
+                const merged = pages.reduce((acc, p) => {
+                    if (p.json) {
+                        try { return { ...acc, ...JSON.parse(p.json) }; } catch { return acc; }
+                    }
+                    return acc;
+                }, {});
+                return JSON.stringify(merged, null, 2);
+            } catch { return ''; }
+        }
+        return jsonInput;
+    }, [pages, jsonInput]);
+
+    // -----------------------------------------------------------------
     // EFFECT: Parse JSON
     // -----------------------------------------------------------------
     useEffect(() => {
         try {
-            let data = JSON.parse(jsonInput);
-
-            // Unwrap if user pasted an array wrapper (like from Tab 1 JSON)
-            if (Array.isArray(data) && data.length > 0) {
-                data = data[0];
-            }
-
-            const flatData = flattenAndExtractLangFields(data);
-            setParsedData(flatData);
+            const src = pages.length > 0 ? effectiveJson : jsonInput;
+            if (!src.trim()) { setParsedData({}); setJsonError(''); return; }
+            const obj = JSON.parse(src);
+            setParsedData(obj);
             setJsonError('');
         } catch (err) {
             setJsonError('JSON không hợp lệ: ' + err.message);
         }
-    }, [jsonInput]);
+    }, [jsonInput, effectiveJson, pages]);
 
     // -----------------------------------------------------------------
     // RENDER: Interpolate HTML
     // -----------------------------------------------------------------
     // Interpolated pages from HTML template
     const templatePages = useMemo(
-        () => interpolateHTML(htmlInput, parsedData, currentLang),
-        [htmlInput, parsedData, currentLang]
+        () => interpolateHTML(effectiveHtml, parsedData, currentLang),
+        [effectiveHtml, parsedData, currentLang]
     );
 
     // The final pages to display — auto-paginated if available, otherwise template pages
@@ -464,11 +485,23 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
 
         // Helper: apply HTML+JSON (respects append mode)
         const applyResult = (htmlPart, jsonPart) => {
-            if (appendMode && htmlInput.trim()) {
-                handleAppendPage(htmlPart, jsonPart);
+            if (appendMode) {
+                // Append mode: add as new page, clear textarea for next input
+                const newPage = { html: htmlPart || '', json: jsonPart || '' };
+                setPages(prev => {
+                    // If no previous pages and textarea has content, save current as page 0 first
+                    if (prev.length === 0 && htmlInput.trim()) {
+                        return [{ html: htmlInput.trim(), json: jsonInput.trim() }, newPage];
+                    }
+                    return [...prev, newPage];
+                });
+                setHtmlInput('');
+                setJsonInput('');
             } else {
+                // Normal mode: replace directly
                 if (htmlPart) setHtmlInput(htmlPart);
                 if (jsonPart) { setJsonInput(jsonPart); setShowJsonInput(true); }
+                setPages([]); // Reset pages when in normal mode
             }
         };
 
@@ -565,37 +598,44 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     // -----------------------------------------------------------------
     const handleAppendPage = (newHtml, newJson) => {
         if (!newHtml && !newJson) return;
-        
-        if (newHtml) {
-            const cleanHtml = sanitizeHtml(newHtml);
-            setHtmlInput(prev => {
-                const current = prev.trim();
-                if (!current) return cleanHtml;
-                return current + '\n<!-- PAGE BREAK -->\n' + cleanHtml;
-            });
-        }
-        
-        if (newJson) {
-            setJsonInput(prev => {
-                try {
-                    const oldData = prev.trim() ? JSON.parse(prev) : {};
-                    const newData = JSON.parse(newJson);
-                    const merged = { ...oldData, ...newData };
-                    return JSON.stringify(merged, null, 2);
-                } catch {
-                    // If merge fails, just replace
-                    return newJson;
-                }
-            });
-            setShowJsonInput(true);
-        }
-        
+        const newPage = { html: newHtml || '', json: newJson || '' };
+        setPages(prev => {
+            if (prev.length === 0 && htmlInput.trim()) {
+                return [{ html: htmlInput.trim(), json: jsonInput.trim() }, newPage];
+            }
+            return [...prev, newPage];
+        });
+        setHtmlInput('');
+        setJsonInput('');
         setSmartPasteMsg('\u2705 \u0110\u00e3 n\u1ed1i th\u00eam trang m\u1edbi!');
         setTimeout(() => setSmartPasteMsg(''), 3000);
     };
 
     // -----------------------------------------------------------------
-    // CLEAR ALL: reset HTML + JSON fields
+    // DELETE A SPECIFIC PAGE
+    // -----------------------------------------------------------------
+    const handleDeletePage = (index) => {
+        setPages(prev => {
+            const updated = prev.filter((_, i) => i !== index);
+            // If only 1 page left, move it back to textarea
+            if (updated.length === 1) {
+                setHtmlInput(updated[0].html);
+                setJsonInput(updated[0].json);
+                if (updated[0].json) setShowJsonInput(true);
+                return [];
+            }
+            // If 0 pages left, clear everything
+            if (updated.length === 0) {
+                setHtmlInput('');
+                setJsonInput('');
+                return [];
+            }
+            return updated;
+        });
+    };
+
+    // -----------------------------------------------------------------
+    // CLEAR ALL: reset HTML + JSON + pages
     // -----------------------------------------------------------------
     const handleClear = () => {
         setHtmlInput('');
@@ -603,7 +643,9 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
         setParsedData({});
         setAutoPaginatedPages(null);
         setSmartPasteMsg('');
+        setPages([]);
     };
+
 
     // -----------------------------------------------------------------
     // PRINT ACTION & MANUAL EDIT
@@ -611,15 +653,15 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     const handlePrint = () => {
         if (!printAreaRef.current) return;
         // Collect all rendered page HTML
-        const pages = printAreaRef.current.querySelectorAll('.print-target');
-        if (pages.length === 0) return;
+        const printPages = printAreaRef.current.querySelectorAll('.print-target');
+        if (printPages.length === 0) return;
 
         let pagesHtml = '';
-        pages.forEach((page, idx) => {
+        printPages.forEach((page, idx) => {
             // Get the inner content wrapper
             const wrapper = page.querySelector('.page-content-wrapper');
             const content = wrapper ? wrapper.innerHTML : page.innerHTML;
-            pagesHtml += `<div style="width:210mm;min-height:297mm;padding:12mm 12mm 15mm 12mm;box-sizing:border-box;overflow:hidden;background:white;position:relative;${idx < pages.length - 1 ? 'page-break-after:always;' : ''}">
+            pagesHtml += `<div style="width:210mm;min-height:297mm;padding:12mm 12mm 15mm 12mm;box-sizing:border-box;overflow:hidden;background:white;position:relative;${idx < printPages.length - 1 ? 'page-break-after:always;' : ''}">
                 ${content}
             </div>`;
         });
@@ -1067,6 +1109,28 @@ ${pagesHtml}
                                 </div>
                             )}
 
+                            {/* Accumulated Pages List */}
+                            {pages.length > 0 && (
+                                <div className="space-y-1">
+                                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                                        📄 {pages.length} trang đã nối
+                                    </div>
+                                    {pages.map((page, i) => (
+                                        <div key={i} className="flex items-center justify-between px-2 py-1.5 bg-slate-50 rounded border border-slate-200 text-xs">
+                                            <span className="font-medium text-slate-600">Trang {i + 1}</span>
+                                            <button
+                                                onClick={() => handleDeletePage(i)}
+                                                className="text-slate-400 hover:text-red-500 transition-colors"
+                                                title={`Xoá trang ${i + 1}`}
+                                            >
+                                                <Trash2 size={11} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <div className="text-[10px] text-slate-400 italic">Dán thêm code vào ô trên để nối trang tiếp</div>
+                                </div>
+                            )}
+
                             {/* Action Buttons: Append Mode Toggle + Clear */}
                             <div className="flex items-center gap-2">
                                 <button
@@ -1078,12 +1142,12 @@ ${pagesHtml}
                                     }`}
                                     title={appendMode ? 'Chế độ nối trang: BẬT — dán thêm sẽ nối vào cuối' : 'Chế độ nối trang: TẮT — dán sẽ thay thế'}
                                 >
-                                    <PlusCircle size={13} /> {appendMode ? '🔗 Nối trang: BẬT' : 'Nối trang'}
+                                    <PlusCircle size={13} /> {appendMode ? `🔗 Nối trang: BẬT${pages.length > 0 ? ` (${pages.length})` : ''}` : 'Nối trang'}
                                 </button>
                                 <button
                                     onClick={handleClear}
                                     className="py-2 px-3 text-xs font-bold rounded-lg bg-slate-100 text-slate-400 hover:bg-red-50 hover:text-red-500 border border-slate-200 hover:border-red-200 transition-all flex items-center gap-1"
-                                    title="Xoá toàn bộ HTML + JSON"
+                                    title="Xoá toàn bộ"
                                 >
                                     <Trash2 size={12} /> Xoá
                                 </button>
