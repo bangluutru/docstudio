@@ -24,6 +24,31 @@ import { saveAs } from 'file-saver';
 import DocToolbar from './DocToolbar';
 import { UNIFIED_TEMPLATE_GEMINI_PROMPT, UNIFIED_TEMPLATE_NOTEBOOKLM_PROMPT } from '../utils/prompts';
 
+// localStorage key for Tab 4 pages persistence
+const TAB4_STORAGE_KEY = 'docstudio_tab4_pages_v1';
+
+// Helper: extract page title from JSON data
+const extractPageTitle = (jsonStr, index) => {
+    try {
+        if (!jsonStr) return `Trang ${index + 1}`;
+        const data = JSON.parse(jsonStr);
+        // Try common title keys
+        for (const key of ['title', 'heading', 'header', 'doc_title']) {
+            if (data[key]) {
+                const val = typeof data[key] === 'object' ? (data[key].vn || data[key].en || data[key].jp) : data[key];
+                if (val) return val.length > 30 ? val.substring(0, 30) + '\u2026' : val;
+            }
+        }
+        // Fallback: first key's value
+        const firstKey = Object.keys(data)[0];
+        if (firstKey && data[firstKey]) {
+            const val = typeof data[firstKey] === 'object' ? (data[firstKey].vn || data[firstKey].en || data[firstKey].jp) : data[firstKey];
+            if (val) return val.length > 30 ? val.substring(0, 30) + '\u2026' : val;
+        }
+    } catch {}
+    return `Trang ${index + 1}`;
+};
+
 // =====================================================================
 // Helper: Deep flatten JSON and group language keys
 // =====================================================================
@@ -271,11 +296,26 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
 
     const [parsedData, setParsedData] = useState({});
     const [appendMode, setAppendMode] = useState(false);
-    const [pages, setPages] = useState([]); // [{html, json}, ...] accumulated pages
+    const [pages, setPages] = useState(() => {
+        try {
+            const stored = localStorage.getItem(TAB4_STORAGE_KEY);
+            return stored ? JSON.parse(stored) : [];
+        } catch { return []; }
+    });
     const [jsonError, setJsonError] = useState('');
 
     // Print ref
     const printAreaRef = useRef(null);
+
+    // Save pages to localStorage (like Tab 1's saveBlocks)
+    const savePages = useCallback((newPages) => {
+        setPages(newPages);
+        try {
+            localStorage.setItem(TAB4_STORAGE_KEY, JSON.stringify(newPages));
+        } catch (e) {
+            console.error('localStorage save error:', e);
+        }
+    }, []);
 
     // -----------------------------------------------------------------
     // EFFECTIVE HTML/JSON: combined from pages array OR textarea
@@ -488,20 +528,21 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
             if (appendMode) {
                 // Append mode: add as new page, clear textarea for next input
                 const newPage = { html: htmlPart || '', json: jsonPart || '' };
-                setPages(prev => {
-                    // If no previous pages and textarea has content, save current as page 0 first
-                    if (prev.length === 0 && htmlInput.trim()) {
-                        return [{ html: htmlInput.trim(), json: jsonInput.trim() }, newPage];
-                    }
-                    return [...prev, newPage];
-                });
+                const currentPages = pages;
+                let updated;
+                if (currentPages.length === 0 && htmlInput.trim()) {
+                    updated = [{ html: htmlInput.trim(), json: jsonInput.trim() }, newPage];
+                } else {
+                    updated = [...currentPages, newPage];
+                }
+                savePages(updated);
                 setHtmlInput('');
                 setJsonInput('');
             } else {
                 // Normal mode: replace directly
                 if (htmlPart) setHtmlInput(htmlPart);
                 if (jsonPart) { setJsonInput(jsonPart); setShowJsonInput(true); }
-                setPages([]); // Reset pages when in normal mode
+                savePages([]);
             }
         };
 
@@ -599,12 +640,14 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     const handleAppendPage = (newHtml, newJson) => {
         if (!newHtml && !newJson) return;
         const newPage = { html: newHtml || '', json: newJson || '' };
-        setPages(prev => {
-            if (prev.length === 0 && htmlInput.trim()) {
-                return [{ html: htmlInput.trim(), json: jsonInput.trim() }, newPage];
-            }
-            return [...prev, newPage];
-        });
+        const currentPages = pages;
+        let updated;
+        if (currentPages.length === 0 && htmlInput.trim()) {
+            updated = [{ html: htmlInput.trim(), json: jsonInput.trim() }, newPage];
+        } else {
+            updated = [...currentPages, newPage];
+        }
+        savePages(updated);
         setHtmlInput('');
         setJsonInput('');
         setSmartPasteMsg('\u2705 \u0110\u00e3 n\u1ed1i th\u00eam trang m\u1edbi!');
@@ -615,35 +658,34 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     // DELETE A SPECIFIC PAGE
     // -----------------------------------------------------------------
     const handleDeletePage = (index) => {
-        setPages(prev => {
-            const updated = prev.filter((_, i) => i !== index);
-            // If only 1 page left, move it back to textarea
-            if (updated.length === 1) {
-                setHtmlInput(updated[0].html);
-                setJsonInput(updated[0].json);
-                if (updated[0].json) setShowJsonInput(true);
-                return [];
-            }
-            // If 0 pages left, clear everything
-            if (updated.length === 0) {
-                setHtmlInput('');
-                setJsonInput('');
-                return [];
-            }
-            return updated;
-        });
+        const updated = pages.filter((_, i) => i !== index);
+        if (updated.length === 1) {
+            setHtmlInput(updated[0].html);
+            setJsonInput(updated[0].json);
+            if (updated[0].json) setShowJsonInput(true);
+            savePages([]);
+        } else if (updated.length === 0) {
+            setHtmlInput('');
+            setJsonInput('');
+            savePages([]);
+        } else {
+            savePages(updated);
+        }
     };
 
     // -----------------------------------------------------------------
     // CLEAR ALL: reset HTML + JSON + pages
     // -----------------------------------------------------------------
     const handleClear = () => {
+        if (pages.length > 0 || htmlInput.trim()) {
+            if (!window.confirm('Xoá toàn bộ dữ liệu (tất cả các trang)?')) return;
+        }
         setHtmlInput('');
         setJsonInput('');
         setParsedData({});
         setAutoPaginatedPages(null);
         setSmartPasteMsg('');
-        setPages([]);
+        savePages([]);
     };
 
 
@@ -1109,29 +1151,49 @@ ${pagesHtml}
                                 </div>
                             )}
 
-                            {/* Accumulated Pages List */}
+                            {/* Page Count */}
                             {pages.length > 0 && (
-                                <div className="space-y-1">
-                                    <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
-                                        📄 {pages.length} trang đã nối
-                                    </div>
-                                    {pages.map((page, i) => (
-                                        <div key={i} className="flex items-center justify-between px-2 py-1.5 bg-slate-50 rounded border border-slate-200 text-xs">
-                                            <span className="font-medium text-slate-600">Trang {i + 1}</span>
-                                            <button
-                                                onClick={() => handleDeletePage(i)}
-                                                className="text-slate-400 hover:text-red-500 transition-colors"
-                                                title={`Xoá trang ${i + 1}`}
-                                            >
-                                                <Trash2 size={11} />
-                                            </button>
+                                <section className="pt-3 border-t border-slate-100">
+                                    <div className="p-3 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl border border-slate-200 flex justify-between items-center">
+                                        <span className="text-sm font-medium text-slate-500">Tổng cộng:</span>
+                                        <div className="flex items-baseline gap-1.5">
+                                            <span className="font-black text-2xl text-slate-800">{pages.length}</span>
+                                            <span className="text-xs text-slate-400">trang</span>
                                         </div>
-                                    ))}
-                                    <div className="text-[10px] text-slate-400 italic">Dán thêm code vào ô trên để nối trang tiếp</div>
-                                </div>
+                                    </div>
+                                </section>
                             )}
 
-                            {/* Action Buttons: Append Mode Toggle + Clear */}
+                            {/* Page List with auto-naming */}
+                            {pages.length > 0 && (
+                                <section className="pt-3 border-t border-slate-100">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2 px-1">
+                                        Danh sách trang
+                                    </p>
+                                    <div className="space-y-0.5 max-h-60 overflow-y-auto custom-scrollbar pr-1">
+                                        {pages.map((page, i) => (
+                                            <div key={i} className="group flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all">
+                                                <div className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-black shrink-0 bg-indigo-600 text-white">
+                                                    {i + 1}
+                                                </div>
+                                                <FileText size={11} className="text-slate-400 shrink-0" />
+                                                <span className="text-[11px] font-medium text-slate-600 truncate flex-1">
+                                                    {extractPageTitle(page.json, i)}
+                                                </span>
+                                                <button
+                                                    onClick={() => handleDeletePage(i)}
+                                                    className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 transition-all"
+                                                    title={`Xoá trang ${i + 1}`}
+                                                >
+                                                    <Trash2 size={11} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+                            )}
+
+                            {/* Action Buttons: Append Mode Toggle + Clear All */}
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => setAppendMode(!appendMode)}
@@ -1140,18 +1202,23 @@ ${pagesHtml}
                                             ? 'bg-amber-100 text-amber-700 border border-amber-300 shadow-sm'
                                             : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200'
                                     }`}
-                                    title={appendMode ? 'Chế độ nối trang: BẬT — dán thêm sẽ nối vào cuối' : 'Chế độ nối trang: TẮT — dán sẽ thay thế'}
+                                    title={appendMode ? 'Chế độ nối trang: BẬT' : 'Chế độ nối trang: TẮT'}
                                 >
-                                    <PlusCircle size={13} /> {appendMode ? `🔗 Nối trang: BẬT${pages.length > 0 ? ` (${pages.length})` : ''}` : 'Nối trang'}
-                                </button>
-                                <button
-                                    onClick={handleClear}
-                                    className="py-2 px-3 text-xs font-bold rounded-lg bg-slate-100 text-slate-400 hover:bg-red-50 hover:text-red-500 border border-slate-200 hover:border-red-200 transition-all flex items-center gap-1"
-                                    title="Xoá toàn bộ"
-                                >
-                                    <Trash2 size={12} /> Xoá
+                                    <PlusCircle size={13} /> {appendMode ? `🔗 Nối trang: BẬT` : 'Nối trang'}
                                 </button>
                             </div>
+
+                            {/* Clear All Button (shown when has data) */}
+                            {(pages.length > 0 || htmlInput.trim()) && (
+                                <div className="pt-3 border-t border-slate-100">
+                                    <button
+                                        onClick={handleClear}
+                                        className="w-full py-2.5 border border-red-100 text-red-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all"
+                                    >
+                                        <Trash2 size={12} /> Xoá toàn bộ dữ liệu
+                                    </button>
+                                </div>
+                            )}
 
                             {/* Collapsible JSON Input (for multilingual mode) */}
                             <button
