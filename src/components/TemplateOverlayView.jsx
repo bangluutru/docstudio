@@ -17,6 +17,8 @@ import {
     FileDown,
     ChevronDown,
     ChevronRight,
+    PlusCircle,
+    Trash2,
 } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import DocToolbar from './DocToolbar';
@@ -268,6 +270,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
 }`);
 
     const [parsedData, setParsedData] = useState({});
+    const [appendMode, setAppendMode] = useState(false);
     const [jsonError, setJsonError] = useState('');
 
     // Print ref
@@ -448,7 +451,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
 
         const text = pasted.trim();
 
-        // Helper: strip markdown code fences (```html ... ``` or ```json ... ```)
+        // Helper: strip markdown code fences
         const stripCodeFence = (str) => {
             return str.replace(/^```(?:html|json|css|javascript|js)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
         };
@@ -459,43 +462,40 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
             setTimeout(() => setSmartPasteMsg(''), 3000);
         };
 
-        // ──────────────────────────────────────────────────────
-        // Strategy 1: Explicit ---JSON_DATA--- marker (Gemini)
-        // ──────────────────────────────────────────────────────
+        // Helper: apply HTML+JSON (respects append mode)
+        const applyResult = (htmlPart, jsonPart) => {
+            if (appendMode && htmlInput.trim()) {
+                handleAppendPage(htmlPart, jsonPart);
+            } else {
+                if (htmlPart) setHtmlInput(htmlPart);
+                if (jsonPart) { setJsonInput(jsonPart); setShowJsonInput(true); }
+            }
+        };
+
+        // ── Strategy 1: Explicit ---JSON_DATA--- marker (Gemini) ──
         const markerIdx = text.indexOf('---JSON_DATA---');
         if (markerIdx >= 0) {
             e.preventDefault();
-            const htmlPart = stripCodeFence(text.substring(0, markerIdx));
-            const jsonPart = stripCodeFence(text.substring(markerIdx + '---JSON_DATA---'.length));
-            if (htmlPart) setHtmlInput(htmlPart);
-            if (jsonPart) { setJsonInput(jsonPart); setShowJsonInput(true); }
-            showSuccess();
+            applyResult(
+                stripCodeFence(text.substring(0, markerIdx)),
+                stripCodeFence(text.substring(markerIdx + '---JSON_DATA---'.length))
+            );
+            showSuccess(appendMode ? '\u2705 \u0110\u00e3 n\u1ed1i th\u00eam trang!' : undefined);
             return;
         }
 
-        // ──────────────────────────────────────────────────────
-        // Strategy 2: Markdown code blocks (NotebookLM format)
-        //   e.g. ```html\n<div>...</div>\n``` ... ```json\n{...}\n```
-        // ──────────────────────────────────────────────────────
+        // ── Strategy 2: Markdown code blocks (NotebookLM) ──
         const htmlBlockMatch = text.match(/```html\s*\n([\s\S]*?)```/i);
         const jsonBlockMatch = text.match(/```json\s*\n([\s\S]*?)```/i);
 
         if (htmlBlockMatch) {
             e.preventDefault();
-            setHtmlInput(htmlBlockMatch[1].trim());
-            if (jsonBlockMatch) {
-                setJsonInput(jsonBlockMatch[1].trim());
-                setShowJsonInput(true);
-                showSuccess();
-            } else {
-                showSuccess('\u2705 \u0110\u00e3 nh\u1eadn HTML t\u1eeb NotebookLM!');
-            }
+            applyResult(htmlBlockMatch[1].trim(), jsonBlockMatch ? jsonBlockMatch[1].trim() : null);
+            showSuccess(appendMode ? '\u2705 \u0110\u00e3 n\u1ed1i th\u00eam trang!' : (jsonBlockMatch ? undefined : '\u2705 \u0110\u00e3 nh\u1eadn HTML!'));
             return;
         }
 
-        // ──────────────────────────────────────────────────────
-        // Strategy 3: Raw HTML + JSON mixed (auto-detect split)
-        // ──────────────────────────────────────────────────────
+        // ── Strategy 3: Raw HTML + JSON mixed (auto-detect) ──
         const hasHtmlTags = /<(?:div|table|section|h[1-6]|ol|ul|p|span)[\s>]/i.test(text);
         const hasJsonBlock = /\{[\s\S]*"vn"\s*:/i.test(text);
 
@@ -518,25 +518,65 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
 
             if (jsonStart >= 0) {
                 e.preventDefault();
-                const htmlPart = lines.slice(0, jsonStart).join('\n').trim();
-                const jsonPart = lines.slice(jsonStart).join('\n').trim();
-                setHtmlInput(htmlPart);
-                setJsonInput(jsonPart);
-                setShowJsonInput(true);
-                showSuccess();
+                applyResult(lines.slice(0, jsonStart).join('\n').trim(), lines.slice(jsonStart).join('\n').trim());
+                showSuccess(appendMode ? '\u2705 \u0110\u00e3 n\u1ed1i th\u00eam trang!' : undefined);
                 return;
             }
         }
 
-        // ──────────────────────────────────────────────────────
-        // Strategy 4: Plain HTML or general content — set directly
-        // ──────────────────────────────────────────────────────
+        // ── Strategy 4: Plain HTML ──
         if (hasHtmlTags) {
             e.preventDefault();
-            setHtmlInput(text);
+            applyResult(text, null);
+            showSuccess(appendMode ? '\u2705 \u0110\u00e3 n\u1ed1i th\u00eam trang!' : '\u2705 \u0110\u00e3 nh\u1eadn HTML!');
             return;
         }
-        // Otherwise: let default textarea paste happen
+        // Otherwise: default textarea paste
+    };
+
+    // -----------------------------------------------------------------
+    // APPEND PAGE: add new page content to existing document
+    // -----------------------------------------------------------------
+    const handleAppendPage = (newHtml, newJson) => {
+        if (!newHtml && !newJson) return;
+        
+        if (newHtml) {
+            const cleanHtml = sanitizeHtml(newHtml);
+            setHtmlInput(prev => {
+                const current = prev.trim();
+                if (!current) return cleanHtml;
+                return current + '\n<!-- PAGE BREAK -->\n' + cleanHtml;
+            });
+        }
+        
+        if (newJson) {
+            setJsonInput(prev => {
+                try {
+                    const oldData = prev.trim() ? JSON.parse(prev) : {};
+                    const newData = JSON.parse(newJson);
+                    const merged = { ...oldData, ...newData };
+                    return JSON.stringify(merged, null, 2);
+                } catch {
+                    // If merge fails, just replace
+                    return newJson;
+                }
+            });
+            setShowJsonInput(true);
+        }
+        
+        setSmartPasteMsg('\u2705 \u0110\u00e3 n\u1ed1i th\u00eam trang m\u1edbi!');
+        setTimeout(() => setSmartPasteMsg(''), 3000);
+    };
+
+    // -----------------------------------------------------------------
+    // CLEAR ALL: reset HTML + JSON fields
+    // -----------------------------------------------------------------
+    const handleClear = () => {
+        setHtmlInput('');
+        setJsonInput('');
+        setParsedData({});
+        setAutoPaginatedPages(null);
+        setSmartPasteMsg('');
     };
 
     // -----------------------------------------------------------------
@@ -1000,6 +1040,28 @@ ${pagesHtml}
                                     {smartPasteMsg}
                                 </div>
                             )}
+
+                            {/* Action Buttons: Append Mode Toggle + Clear */}
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setAppendMode(!appendMode)}
+                                    className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+                                        appendMode
+                                            ? 'bg-amber-100 text-amber-700 border border-amber-300 shadow-sm'
+                                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200'
+                                    }`}
+                                    title={appendMode ? 'Chế độ nối trang: BẬT — dán thêm sẽ nối vào cuối' : 'Chế độ nối trang: TẮT — dán sẽ thay thế'}
+                                >
+                                    <PlusCircle size={13} /> {appendMode ? '🔗 Nối trang: BẬT' : 'Nối trang'}
+                                </button>
+                                <button
+                                    onClick={handleClear}
+                                    className="py-2 px-3 text-xs font-bold rounded-lg bg-slate-100 text-slate-400 hover:bg-red-50 hover:text-red-500 border border-slate-200 hover:border-red-200 transition-all flex items-center gap-1"
+                                    title="Xoá toàn bộ HTML + JSON"
+                                >
+                                    <Trash2 size={12} /> Xoá
+                                </button>
+                            </div>
 
                             {/* Collapsible JSON Input (for multilingual mode) */}
                             <button
