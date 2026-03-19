@@ -469,8 +469,6 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
         const hasJsonBlock = /\{[\s\S]*"vn"\s*:/i.test(text);
 
         if (hasHtmlTags && hasJsonBlock) {
-            e.preventDefault();
-
             let jsonStart = -1;
             const lines = text.split('\n');
             for (let i = lines.length - 1; i >= 0; i--) {
@@ -488,6 +486,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
             }
 
             if (jsonStart >= 0) {
+                e.preventDefault(); // Only prevent default AFTER confirming valid split
                 const htmlPart = lines.slice(0, jsonStart).join('\n').trim();
                 const jsonPart = lines.slice(jsonStart).join('\n').trim();
                 setHtmlInput(htmlPart);
@@ -497,8 +496,18 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                 setTimeout(() => setSmartPasteMsg(''), 3000);
                 return;
             }
+            // If no valid JSON split found, fall through to default paste below
         }
-        // If no split needed, let default paste happen
+
+        // Strategy 3: Plain content (HTML only or anything else) — use default paste
+        // For textarea, the browser's default paste works fine.
+        // But if content has HTML, also manually set it as a safety net.
+        if (hasHtmlTags) {
+            e.preventDefault();
+            setHtmlInput(text);
+            return;
+        }
+        // Otherwise: let default paste happen (plain text, etc.)
     };
 
     // -----------------------------------------------------------------
