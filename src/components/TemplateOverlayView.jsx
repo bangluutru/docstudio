@@ -500,6 +500,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
         const hasJsonBlock = /\{[\s\S]*"vn"\s*:/i.test(text);
 
         if (hasHtmlTags && hasJsonBlock) {
+            // Method A: line-by-line from bottom (works when JSON is cleanly separated)
             let jsonStart = -1;
             const lines = text.split('\n');
             for (let i = lines.length - 1; i >= 0; i--) {
@@ -521,6 +522,31 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                 applyResult(lines.slice(0, jsonStart).join('\n').trim(), lines.slice(jsonStart).join('\n').trim());
                 showSuccess(appendMode ? '\u2705 \u0110\u00e3 n\u1ed1i th\u00eam trang!' : undefined);
                 return;
+            }
+
+            // Method B: bracket-match extraction (works when NLM adds trailing text after JSON)
+            const lastBrace = text.lastIndexOf('}');
+            if (lastBrace > 0) {
+                let depth = 0;
+                let jsonStartIdx = -1;
+                for (let i = lastBrace; i >= 0; i--) {
+                    if (text[i] === '}') depth++;
+                    if (text[i] === '{') depth--;
+                    if (depth === 0) { jsonStartIdx = i; break; }
+                }
+                if (jsonStartIdx > 0) {
+                    const jsonCandidate = text.substring(jsonStartIdx, lastBrace + 1);
+                    try {
+                        const parsed = JSON.parse(jsonCandidate);
+                        if (typeof parsed === 'object' && !Array.isArray(parsed) && Object.keys(parsed).length > 0) {
+                            e.preventDefault();
+                            const htmlPart = text.substring(0, jsonStartIdx).replace(/```json\s*$/i, '').replace(/```\s*$/i, '').trim();
+                            applyResult(stripCodeFence(htmlPart), jsonCandidate);
+                            showSuccess(appendMode ? '\u2705 \u0110\u00e3 n\u1ed1i th\u00eam trang!' : undefined);
+                            return;
+                        }
+                    } catch (_) { /* not valid JSON, fall through */ }
+                }
             }
         }
 
