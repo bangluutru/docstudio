@@ -448,23 +448,54 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
 
         const text = pasted.trim();
 
-        // Strategy 1: Explicit ---JSON_DATA--- marker (from unified Gemini prompt)
+        // Helper: strip markdown code fences (```html ... ``` or ```json ... ```)
+        const stripCodeFence = (str) => {
+            return str.replace(/^```(?:html|json|css|javascript|js)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+        };
+
+        // Helper: show success message
+        const showSuccess = (msg) => {
+            setSmartPasteMsg(msg || '\u2705 T\u1ef1 \u0111\u1ed9ng t\u00e1ch HTML + JSON th\u00e0nh c\u00f4ng!');
+            setTimeout(() => setSmartPasteMsg(''), 3000);
+        };
+
+        // ──────────────────────────────────────────────────────
+        // Strategy 1: Explicit ---JSON_DATA--- marker (Gemini)
+        // ──────────────────────────────────────────────────────
         const markerIdx = text.indexOf('---JSON_DATA---');
         if (markerIdx >= 0) {
             e.preventDefault();
-            const htmlPart = text.substring(0, markerIdx).trim();
-            const jsonPart = text.substring(markerIdx + '---JSON_DATA---'.length).trim();
+            const htmlPart = stripCodeFence(text.substring(0, markerIdx));
+            const jsonPart = stripCodeFence(text.substring(markerIdx + '---JSON_DATA---'.length));
             if (htmlPart) setHtmlInput(htmlPart);
-            if (jsonPart) {
-                setJsonInput(jsonPart);
-                setShowJsonInput(true);
-            }
-            setSmartPasteMsg('\u2705 T\u1ef1 \u0111\u1ed9ng t\u00e1ch HTML + JSON th\u00e0nh c\u00f4ng!');
-            setTimeout(() => setSmartPasteMsg(''), 3000);
+            if (jsonPart) { setJsonInput(jsonPart); setShowJsonInput(true); }
+            showSuccess();
             return;
         }
 
-        // Strategy 2: Auto-detect HTML + JSON mixed (legacy fallback)
+        // ──────────────────────────────────────────────────────
+        // Strategy 2: Markdown code blocks (NotebookLM format)
+        //   e.g. ```html\n<div>...</div>\n``` ... ```json\n{...}\n```
+        // ──────────────────────────────────────────────────────
+        const htmlBlockMatch = text.match(/```html\s*\n([\s\S]*?)```/i);
+        const jsonBlockMatch = text.match(/```json\s*\n([\s\S]*?)```/i);
+
+        if (htmlBlockMatch) {
+            e.preventDefault();
+            setHtmlInput(htmlBlockMatch[1].trim());
+            if (jsonBlockMatch) {
+                setJsonInput(jsonBlockMatch[1].trim());
+                setShowJsonInput(true);
+                showSuccess();
+            } else {
+                showSuccess('\u2705 \u0110\u00e3 nh\u1eadn HTML t\u1eeb NotebookLM!');
+            }
+            return;
+        }
+
+        // ──────────────────────────────────────────────────────
+        // Strategy 3: Raw HTML + JSON mixed (auto-detect split)
+        // ──────────────────────────────────────────────────────
         const hasHtmlTags = /<(?:div|table|section|h[1-6]|ol|ul|p|span)[\s>]/i.test(text);
         const hasJsonBlock = /\{[\s\S]*"vn"\s*:/i.test(text);
 
@@ -481,33 +512,31 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                             jsonStart = i;
                             break;
                         }
-                    } catch (_) { /* not valid JSON from this point, keep searching */ }
+                    } catch (_) { /* keep searching */ }
                 }
             }
 
             if (jsonStart >= 0) {
-                e.preventDefault(); // Only prevent default AFTER confirming valid split
+                e.preventDefault();
                 const htmlPart = lines.slice(0, jsonStart).join('\n').trim();
                 const jsonPart = lines.slice(jsonStart).join('\n').trim();
                 setHtmlInput(htmlPart);
                 setJsonInput(jsonPart);
                 setShowJsonInput(true);
-                setSmartPasteMsg('\u2705 T\u1ef1 \u0111\u1ed9ng t\u00e1ch HTML + JSON th\u00e0nh c\u00f4ng!');
-                setTimeout(() => setSmartPasteMsg(''), 3000);
+                showSuccess();
                 return;
             }
-            // If no valid JSON split found, fall through to default paste below
         }
 
-        // Strategy 3: Plain content (HTML only or anything else) — use default paste
-        // For textarea, the browser's default paste works fine.
-        // But if content has HTML, also manually set it as a safety net.
+        // ──────────────────────────────────────────────────────
+        // Strategy 4: Plain HTML or general content — set directly
+        // ──────────────────────────────────────────────────────
         if (hasHtmlTags) {
             e.preventDefault();
             setHtmlInput(text);
             return;
         }
-        // Otherwise: let default paste happen (plain text, etc.)
+        // Otherwise: let default textarea paste happen
     };
 
     // -----------------------------------------------------------------
