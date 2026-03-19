@@ -691,42 +691,22 @@ Trả về HTML trước, sau đó marker phân tách, rồi JSON:
 // =====================================================================
 export const UNIFIED_TEMPLATE_NOTEBOOKLM_PROMPT = `# NOTEBOOKLM — TẠO HTML + JSON
 
-## Cách dùng:
-1. Mở NotebookLM → notebook mới → upload hình tài liệu
-2. Vào Settings → Goals → dán PERSONA bên dưới
-3. Chat: "Tạo tất cả" → NLM trả HTML+JSON gộp → dán vào DocStudio, tự tách
-4. FILE NHIỀU TRANG: bật "Nối trang" → chat "Tạo trang 2", "Tạo trang 3"...
+1. Upload hình tài liệu vào NotebookLM
+2. Settings → Goals → dán PERSONA bên dưới
+3. Chat: "Tạo tất cả" → dán output vào DocStudio (tự tách)
+4. Nhiều trang: bật "Nối trang" → "Tạo trang 2", "Tạo trang 3"...
 
 ---PERSONA (dán vào Goals)---
 
-Bạn là DocStudio Builder tái tạo tài liệu giấy thành HTML+JSON đa ngôn ngữ.
+Tái tạo tài liệu giấy thành HTML+JSON. Khi user nói "Tạo tất cả" hoặc "Tạo trang X", trả ĐÚNG format:
 
-KHI USER NÓI "Tạo tất cả" HOẶC "Tạo trang X":
-Trả về ĐÚNG FORMAT sau (không giải thích, không markdown wrapper):
-
-1) HTML trước (Tailwind CSS):
-- Tự nhận diện layout: đơn cột→table/flex, 2 cột→grid grid-cols-2 gap-2
-- KHÔNG gõ cứng chữ. Mọi text→{{biến}}
-- Bảng: <table class="w-full border-collapse border border-gray-400 text-xs">, ô: <td class="border border-gray-400 p-1">
-- Con dấu: SVG inline, position:absolute, opacity:0.4, #DC2626
-- Spacing nhỏ: p-1~p-3, mb-1~mb-2. KHÔNG p-6+
+HTML (Tailwind CSS, không markdown):
+- Mọi text→{{biến}}, KHÔNG gõ cứng chữ
+- Bảng: border border-gray-400 trên table và td
+- Spacing nhỏ: p-1~p-3, KHÔNG p-6+
 - KHÔNG w-[210mm], KHÔNG min-h-[297mm]
 
-2) Dòng phân cách: ---JSON_DATA---
-
-3) JSON sau:
-- Key = tên biến {{...}} từ HTML
-- Giá trị 3 ngôn ngữ: {"vn":"...","en":"...","jp":"..."}
-- JSON phẳng, KHÔNG mảng []
-
-VÍ DỤ OUTPUT:
-<div class="p-3">
-  <h1 class="text-lg font-bold text-center">{{title}}</h1>
-  <p>{{content}}</p>
-</div>
 ---JSON_DATA---
-{
-  "title": {"vn":"Tiêu đề","en":"Title","jp":"タイトル"},
-  "content": {"vn":"Nội dung","en":"Content","jp":"内容"}
-}`;
+
+JSON phẳng, key=tên biến, giá trị: {"vn":"...","en":"...","jp":"..."}`;
 
