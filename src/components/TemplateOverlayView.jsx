@@ -647,13 +647,21 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
         const printPages = printAreaRef.current.querySelectorAll('.print-target');
         if (printPages.length === 0) return;
 
+        // Map bodyFontSizeIndex to actual CSS font sizes
+        const fontSizes = ['9px', '10px', '11px', '12px', '14px', '16px', '18px', '20px', '24px', '30px', '36px', '48px', '60px'];
+        const fontSize = fontSizes[bodyFontSizeIndex] || '14px';
+
         let pagesHtml = '';
         printPages.forEach((page, idx) => {
             // Get the inner content wrapper
             const wrapper = page.querySelector('.page-content-wrapper');
             const content = wrapper ? wrapper.innerHTML : page.innerHTML;
-            pagesHtml += `<div style="width:210mm;min-height:297mm;padding:12mm 12mm 15mm 12mm;box-sizing:border-box;overflow:hidden;background:white;position:relative;${idx < printPages.length - 1 ? 'page-break-after:always;' : ''}">
-                ${content}
+            // Apply contentScale to the content wrapper inside each page
+            const scaleStyle = contentScale !== 1
+                ? `transform:scale(${contentScale});transform-origin:top left;width:${100 / contentScale}%;`
+                : '';
+            pagesHtml += `<div style="width:210mm;min-height:297mm;padding:12mm 12mm 15mm 12mm;box-sizing:border-box;overflow:hidden;background:white;position:relative;font-size:${fontSize};${idx < printPages.length - 1 ? 'page-break-after:always;' : ''}">
+                <div style="${scaleStyle}">${content}</div>
             </div>`;
         });
 
