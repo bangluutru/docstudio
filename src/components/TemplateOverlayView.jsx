@@ -50,57 +50,6 @@ const extractPageTitle = (jsonStr, index) => {
 };
 
 // =====================================================================
-// Helper: Deep flatten JSON and group language keys
-// =====================================================================
-const flattenAndExtractLangFields = (data) => {
-    const flat = {};
-    const recurse = (obj, prefix = '') => {
-        if (Array.isArray(obj)) {
-            obj.forEach((item, i) => recurse(item, `${prefix}[${i}].`));
-        } else if (obj !== null && typeof obj === 'object') {
-            const isLangObj = Object.keys(obj).some(k => ['vn', 'en', 'jp'].includes(k)) &&
-                Object.values(obj).every(v => typeof v === 'string' || typeof v === 'boolean' || typeof v === 'number' || !v);
-            if (isLangObj) {
-                flat[prefix.replace(/\.$/, '')] = obj;
-            } else {
-                Object.entries(obj).forEach(([k, v]) => recurse(v, `${prefix}${k}.`));
-            }
-        } else {
-            flat[prefix.replace(/\.$/, '')] = String(obj);
-        }
-    };
-    recurse(data);
-
-    const grouped = {};
-    const langRegex = /_(vn|en|jp)$/;
-    Object.entries(flat).forEach(([key, value]) => {
-        const match = key.match(langRegex);
-        if (match) {
-            const baseKey = key.replace(langRegex, '');
-            const lang = match[1];
-            if (!grouped[baseKey]) grouped[baseKey] = {};
-            if (typeof grouped[baseKey] === 'object') {
-                grouped[baseKey][lang] = value;
-            }
-        } else {
-            grouped[key] = value;
-        }
-    });
-
-    // Alias specific legacy keys to simpler standard keys to match AI HTML Generation
-    // e.g., 'table.rows[0].[1]' -> something easier, or 'company_info.name' -> 'company_info_name'
-    const finalGroup = { ...grouped };
-    Object.keys(grouped).forEach(k => {
-        const cleanKey = k.replace(/[\.\[\]]/g, '_').replace(/__+/g, '_').replace(/_$/g, '');
-        if (cleanKey !== k) {
-            finalGroup[cleanKey] = grouped[k];
-        }
-    });
-
-    return finalGroup;
-};
-
-// =====================================================================
 // Sanitize AI HTML: strip outer wrapper + auto-compact spacing
 // =====================================================================
 const sanitizeHtml = (html) => {
