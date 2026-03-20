@@ -713,16 +713,36 @@ MULTI-PAGE: Process ONE page per response.
 FOR EACH PAGE output HTML then JSON together:
 
 HTML RULES (Tailwind CSS):
-Layout: Auto-detect single-column or 2-column (use grid grid-cols-2 gap-2). Header/footer full-width above/below grid.
-Variables: NEVER hardcode text. ALL content must be {{variable_name}}. Labels and values separate: {{label_name}} + {{customer_name}}. Numbered items: {{item_1}}, {{item_2}}.
+
+LAYOUT — Auto-detect document type:
+1. Single-column (certificates, forms): normal block flow, no grid needed.
+2. Two-column (SDS, manuals, spec sheets): Use this structure:
+   <div class="p-3">
+     <!-- Full-width header -->
+     <div class="text-center mb-2">{{title}}</div>
+     <!-- Two-column body -->
+     <div class="grid grid-cols-2 gap-3 text-xs">
+       <div><!-- LEFT column sections --></div>
+       <div><!-- RIGHT column sections --></div>
+     </div>
+     <!-- Full-width footer -->
+   </div>
+   Each column contains INDEPENDENT sections. Sections in left column use [Section Title] as bold header followed by content. Same for right column.
+3. Mixed: header/footer full-width, body in columns.
+
+Section headers: <p class="font-bold text-xs mt-2 mb-1">[{{section_title}}]</p>
+Nested sub-items within sections: use ordered/unordered lists with pl-3.
+Lettered sub-items (a. b. c.): wrap each in <div class="pl-4 mb-0.5 text-xs">
+
+Variables: NEVER hardcode text. ALL content must be {{variable_name}}. Labels and values separate: {{label_name}} + {{value_name}}. Numbered items: {{item_1}}, {{item_2}}. For multi-column docs, prefix by column: {{left_section1_item1}}, {{right_contact_tel}}.
 Tables: MANDATORY borders. table: "w-full border-collapse border border-gray-400 text-xs". th: "border border-gray-400 p-1 font-bold bg-gray-100". td: "border border-gray-400 p-1". Use colspan/rowspan as original.
-Flowcharts: Each step in bordered div. Vertical arrows: centered "↓". Horizontal: "→". Layout: flex flex-col items-center.
+Flowcharts: Each step in bordered div. Vertical arrows: centered "↓". Horizontal: "→". flex flex-col items-center.
 Stamps/Seals: Inline SVG, position:absolute on relative container. Red circle + text, opacity:0.35, rotated -15deg.
-Checkboxes: Ticked: span w-4 h-4 border with "✓". Empty: same without text. Use variable {{check_item}}.
+Checkboxes: Ticked: span w-4 h-4 border with "✓". Empty: same without text. Variable: {{check_item}}.
 Signatures: Centered div w-48, title top, border-b separator, bold name bottom. Multiple: flex justify-between.
 Logo/Images: Dashed border placeholder div with centered text variable.
-Typography: Title: text-lg font-bold text-center. Subtitle: text-sm font-bold uppercase. Body: text-xs. Notes: text-[10px] italic text-gray-500.
-Spacing: ONLY p-1 to p-3, mb-1 to mb-3, gap-1 to gap-2. NEVER p-6+ or gap-6+. Use leading-tight. NO fixed width/height (no 210mm/297mm).
+Typography: Title: text-lg font-bold text-center. Subtitle: text-sm font-bold uppercase. Body: text-xs leading-tight. Notes: text-[10px] italic text-gray-500.
+Spacing: ONLY p-1 to p-3, mb-1 to mb-3, gap-1 to gap-3. NEVER p-6+. Use leading-tight. NO fixed width/height.
 Special frames: Warning: border-2 border-red-600 bg-red-50. Important: border-2 border-blue-600 bg-blue-50.
 
 JSON RULES:
