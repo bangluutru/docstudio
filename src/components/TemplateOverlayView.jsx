@@ -341,12 +341,23 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                 return;
             }
 
+            // Check if element is a layout container (grid/flex) that should NOT be unwrapped
+            const isLayoutContainer = (el) => {
+                if (!el || !el.className) return false;
+                const cls = typeof el.className === 'string' ? el.className : '';
+                // Check for CSS grid or flexbox classes
+                return /\b(grid|flex)\b/.test(cls) || 
+                       /\bgrid-cols-\d/.test(cls);
+            };
+
             // Recursively find splittable block-level children
             // AI often wraps everything in a single div — we need to unwrap
+            // BUT: never unwrap grid/flex layout containers
             const findSplittableChildren = (el) => {
                 const kids = [...el.children];
-                // If only 1 child and it's a div wrapper, go deeper
-                if (kids.length === 1 && kids[0].tagName === 'DIV' && kids[0].children.length > 1) {
+                // If only 1 child and it's a div wrapper (NOT a layout container), go deeper
+                if (kids.length === 1 && kids[0].tagName === 'DIV' && 
+                    kids[0].children.length > 1 && !isLayoutContainer(kids[0])) {
                     return findSplittableChildren(kids[0]);
                 }
                 return kids.length > 0 ? kids : [...el.childNodes].filter(n => n.nodeType === Node.ELEMENT_NODE);
@@ -382,6 +393,24 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
             // Push remaining
             if (currentPageHtml.length > 0) {
                 pages.push(currentPageHtml.join('\n'));
+            }
+
+            // Anti-orphan: merge last page with previous if it's too small (< 10% of A4)
+            const MIN_PAGE_HEIGHT_RATIO = 0.1;
+            if (pages.length > 1) {
+                // Measure the last page's content height
+                const tempDiv = document.createElement('div');
+                tempDiv.style.cssText = 'position:absolute;width:calc(210mm - 24mm);visibility:hidden;height:auto;';
+                tempDiv.innerHTML = pages[pages.length - 1];
+                document.body.appendChild(tempDiv);
+                const lastPageHeight = tempDiv.scrollHeight;
+                document.body.removeChild(tempDiv);
+
+                if (lastPageHeight < A4_CONTENT_HEIGHT_PX * MIN_PAGE_HEIGHT_RATIO) {
+                    // Merge last page into previous
+                    const lastHtml = pages.pop();
+                    pages[pages.length - 1] += '\n' + lastHtml;
+                }
             }
 
             if (pages.length > 1) {
