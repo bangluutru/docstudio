@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import DocToolbar from './DocToolbar';
-import { UNIFIED_TEMPLATE_GEMINI_PROMPT, UNIFIED_TEMPLATE_NOTEBOOKLM_PROMPT } from '../utils/prompts';
+import { UNIFIED_TEMPLATE_GEMINI_PROMPT, UNIFIED_TEMPLATE_NOTEBOOKLM_PROMPT, DOC_TYPES, getNotebookLMPrompt } from '../utils/prompts';
 
 // localStorage key for Tab 4 pages persistence
 const TAB4_STORAGE_KEY = 'docstudio_tab4_pages_v1';
@@ -178,6 +178,7 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
     const [bodyFontSizeIndex, setBodyFontSizeIndex] = useState(4); // default 4 = text-sm
     const [isHeightTrimmed, setIsHeightTrimmed] = useState(false);
     const [zoomLevel, setZoomLevel] = useState(100);
+    const [docType, setDocType] = useState('universal');
     const [customFont, setCustomFont] = useState(null);
     const [promptSource, setPromptSource] = useState('gemini');
     const [showJsonInput, setShowJsonInput] = useState(false);
@@ -707,11 +708,15 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
             // Get the inner content wrapper
             const wrapper = page.querySelector('.page-content-wrapper');
             const content = wrapper ? wrapper.innerHTML : page.innerHTML;
+            // Detect landscape page
+            const isLandscape = page.hasAttribute('data-landscape');
+            const pageW = isLandscape ? '297mm' : '210mm';
+            const pageH = isLandscape ? '210mm' : '297mm';
             // Apply contentScale to the content wrapper inside each page
             const scaleStyle = contentScale !== 1
                 ? `transform:scale(${contentScale});transform-origin:top left;width:${100 / contentScale}%;`
                 : '';
-            pagesHtml += `<div style="width:210mm;min-height:297mm;padding:12mm 12mm 15mm 12mm;box-sizing:border-box;overflow:hidden;background:white;position:relative;font-size:${fontSize};${idx < printPages.length - 1 ? 'page-break-after:always;' : ''}">
+            pagesHtml += `<div style="width:${pageW};min-height:${pageH};padding:12mm 12mm 15mm 12mm;box-sizing:border-box;overflow:hidden;background:white;position:relative;font-size:${fontSize};${idx < printPages.length - 1 ? 'page-break-after:always;' : ''}">
                 <div style="${scaleStyle}">${content}</div>
             </div>`;
         });
@@ -1119,11 +1124,28 @@ ${pagesHtml}
                             </button>
                         </div>
 
+                        {/* Document Type Selector (NotebookLM only) */}
+                        {promptSource === 'notebooklm' && (
+                            <div className="px-4 pt-3 pb-1">
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1 block">Loại văn bản</label>
+                                <select
+                                    value={docType}
+                                    onChange={(e) => setDocType(e.target.value)}
+                                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-300 focus:border-fuchsia-400 transition-all cursor-pointer"
+                                >
+                                    {Object.entries(DOC_TYPES).map(([key, { label, icon }]) => (
+                                        <option key={key} value={key}>{icon} {label}</option>
+                                    ))}
+                                </select>
+                                <p className="text-[10px] text-slate-400 mt-1">{DOC_TYPES[docType]?.description}</p>
+                            </div>
+                        )}
+
                         {/* Prompt Helpers */}
                         {promptSource === 'gemini' ? (
                             <PromptHelper title='📐 Lệnh AI: Vẽ HTML + Trích Xuất JSON' promptText={UNIFIED_TEMPLATE_GEMINI_PROMPT} />
                         ) : (
-                            <PromptHelper title='📓 Hướng dẫn NotebookLM' promptText={UNIFIED_TEMPLATE_NOTEBOOKLM_PROMPT} />
+                            <PromptHelper title='📓 Hướng dẫn NotebookLM' promptText={getNotebookLMPrompt(docType)} />
                         )}
 
                         {/* HTML Input */}
@@ -1304,16 +1326,19 @@ ${pagesHtml}
 
                     {/* Document Canvas — Multi-page */}
                     <div ref={printAreaRef} className="flex flex-col gap-10 pb-24 items-center w-full" style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center', transition: 'transform 0.2s ease' }}>
-                        {finalPages.map((pageHtml, pageIdx) => (
+                        {finalPages.map((pageHtml, pageIdx) => {
+                            const isLandscape = /data-orientation\s*=\s*["']landscape["']/i.test(pageHtml);
+                            return (
                             <div
                                 key={pageIdx}
                                 className={`bg-white shadow-2xl transition-all print-target outline-none relative 
                                 ${['text-[9px]', 'text-[10px]', 'text-[11px]', 'text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'text-4xl', 'text-5xl', 'text-6xl'][bodyFontSizeIndex]}
                                 ${isEditing ? 'ring-4 ring-amber-400 border-amber-500' : ''}
                                 ${customFont ? 'custom-font-active' : ''}`}
+                                data-landscape={isLandscape || undefined}
                                 style={{
-                                    width: '210mm',
-                                    minHeight: isHeightTrimmed ? 'auto' : '297mm',
+                                    width: isLandscape ? '297mm' : '210mm',
+                                    minHeight: isHeightTrimmed ? 'auto' : (isLandscape ? '210mm' : '297mm'),
                                     padding: '12mm 12mm 15mm 12mm',
                                     boxSizing: 'border-box',
                                     overflow: 'hidden',
@@ -1341,7 +1366,8 @@ ${pagesHtml}
                                     dangerouslySetInnerHTML={{ __html: pageHtml }}
                                 />
                             </div>
-                        ))}
+                        );
+                        })}
                     </div>
                 </main>
             </div>
