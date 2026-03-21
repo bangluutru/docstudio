@@ -341,23 +341,30 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                 return;
             }
 
-            // Check if element is a layout container (grid/flex) that should NOT be unwrapped
-            const isLayoutContainer = (el) => {
-                if (!el || !el.className) return false;
+            // Check if content contains grid/flex layout containers
+            // These are 2-column documents (SDS, manuals) that should NOT be auto-paginated
+            const hasLayoutContainer = (el) => {
                 const cls = typeof el.className === 'string' ? el.className : '';
-                // Check for CSS grid or flexbox classes
-                return /\b(grid|flex)\b/.test(cls) || 
-                       /\bgrid-cols-\d/.test(cls);
+                if (/\b(grid-cols-|flex\s)/.test(cls) || /\bgrid\b/.test(cls)) return true;
+                for (const child of el.children) {
+                    if (hasLayoutContainer(child)) return true;
+                }
+                return false;
             };
+
+            if (hasLayoutContainer(container)) {
+                // Content has grid/flex layout — don't auto-paginate
+                // User should use content scale to fit on page
+                setAutoPaginatedPages(null);
+                return;
+            }
 
             // Recursively find splittable block-level children
             // AI often wraps everything in a single div — we need to unwrap
-            // BUT: never unwrap grid/flex layout containers
             const findSplittableChildren = (el) => {
                 const kids = [...el.children];
-                // If only 1 child and it's a div wrapper (NOT a layout container), go deeper
-                if (kids.length === 1 && kids[0].tagName === 'DIV' && 
-                    kids[0].children.length > 1 && !isLayoutContainer(kids[0])) {
+                // If only 1 child and it's a plain div wrapper, go deeper
+                if (kids.length === 1 && kids[0].tagName === 'DIV' && kids[0].children.length > 1) {
                     return findSplittableChildren(kids[0]);
                 }
                 return kids.length > 0 ? kids : [...el.childNodes].filter(n => n.nodeType === Node.ELEMENT_NODE);
@@ -395,22 +402,37 @@ const TemplateOverlayView = ({ displayLang: globalDisplayLang }) => {
                 pages.push(currentPageHtml.join('\n'));
             }
 
-            // Anti-orphan: merge last page with previous if it's too small (< 10% of A4)
-            const MIN_PAGE_HEIGHT_RATIO = 0.1;
-            if (pages.length > 1) {
-                // Measure the last page's content height
-                const tempDiv = document.createElement('div');
-                tempDiv.style.cssText = 'position:absolute;width:calc(210mm - 24mm);visibility:hidden;height:auto;';
-                tempDiv.innerHTML = pages[pages.length - 1];
-                document.body.appendChild(tempDiv);
-                const lastPageHeight = tempDiv.scrollHeight;
-                document.body.removeChild(tempDiv);
-
-                if (lastPageHeight < A4_CONTENT_HEIGHT_PX * MIN_PAGE_HEIGHT_RATIO) {
-                    // Merge last page into previous
-                    const lastHtml = pages.pop();
-                    pages[pages.length - 1] += '\n' + lastHtml;
+            // Anti-orphan: merge first/last pages if too small (< 15% of A4)
+            const MIN_CONTENT = A4_CONTENT_HEIGHT_PX * 0.15;
+            while (pages.length > 1) {
+                let merged = false;
+                // Check first page
+                const tempFirst = document.createElement('div');
+                tempFirst.style.cssText = 'position:absolute;width:calc(210mm - 24mm);visibility:hidden;height:auto;';
+                tempFirst.innerHTML = pages[0];
+                document.body.appendChild(tempFirst);
+                const firstH = tempFirst.scrollHeight;
+                document.body.removeChild(tempFirst);
+                if (firstH < MIN_CONTENT && pages.length > 1) {
+                    pages[1] = pages[0] + '\n' + pages[1];
+                    pages.shift();
+                    merged = true;
                 }
+                // Check last page
+                if (pages.length > 1) {
+                    const tempLast = document.createElement('div');
+                    tempLast.style.cssText = 'position:absolute;width:calc(210mm - 24mm);visibility:hidden;height:auto;';
+                    tempLast.innerHTML = pages[pages.length - 1];
+                    document.body.appendChild(tempLast);
+                    const lastH = tempLast.scrollHeight;
+                    document.body.removeChild(tempLast);
+                    if (lastH < MIN_CONTENT) {
+                        const lastHtml = pages.pop();
+                        pages[pages.length - 1] += '\n' + lastHtml;
+                        merged = true;
+                    }
+                }
+                if (!merged) break;
             }
 
             if (pages.length > 1) {
